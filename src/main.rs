@@ -12,7 +12,7 @@ fn main() -> std::io::Result<()> {
     let matches = App::new("mycc")
         .version("0.1.0")
         .author("tkclimb")
-        .about("My C Compiler")
+        .about("mycc (MY C Compiler)")
         .arg(Arg::with_name("source_file").required(true))
         .get_matches();
 
@@ -25,9 +25,10 @@ fn main() -> std::io::Result<()> {
     let contents = std::fs::read_to_string(source_file_path).expect("[error] read_to_string");
     let mut lexer = Lexer::new(contents.chars().collect());
     let tokens = lexer.tokenize();
+    println!("{:?}", tokens);
     let mut parser = Parser::new(tokens);
     let expr = parser.parse();
-    println!("{:?}", expr);
+    // println!("{:?}", expr);
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum TokenType {
   Number(u64), // [0-9][0-9]*
   Plus,        // '+'
@@ -10,7 +10,7 @@ pub enum TokenType {
   Eof,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct Position {
   start: usize,
   end: usize,
@@ -25,7 +25,7 @@ impl Position {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct Token {
   pub ty: TokenType,
   position: Position,
@@ -182,4 +182,22 @@ impl Lexer {
       Err(_) => panic!("Invalid number found..."),
     }
   }
+}
+
+#[test]
+fn test_lexer() {
+  test_tokenize(
+    "1 + 2",
+    r#"[Token { ty: Number(1), position: Position { start: 0, end: 1 } }, Token { ty: Plus, position: Position { start: 2, end: 3 } }, Token { ty: Number(2), position: Position { start: 4, end: 5 } }]"#,
+  );
+  test_tokenize(
+    "-5 + (4 - 20) * 4",
+    r#"[Token { ty: Minus, position: Position { start: 0, end: 1 } }, Token { ty: Number(5), position: Position { start: 1, end: 2 } }, Token { ty: Plus, position: Position { start: 3, end: 4 } }, Token { ty: LParen, position: Position { start: 5, end: 6 } }, Token { ty: Number(4), position: Position { start: 6, end: 7 } }, Token { ty: Minus, position: Position { start: 8, end: 9 } }, Token { ty: Number(20), position: Position { start: 10, end: 12 } }, Token { ty: RParen, position: Position { start: 12, end: 13 } }, Token { ty: Aster, position: Position { start: 14, end: 15 } }, Token { ty: Number(4), position: Position { start: 16, end: 17 } }]"#,
+  );
+}
+
+#[cfg(test)]
+fn test_tokenize(input: &str, expected: &str) {
+  let mut lexer = Lexer::new(input.chars().collect());
+  assert_eq!(format!("{:?}", lexer.tokenize()), expected);
 }
