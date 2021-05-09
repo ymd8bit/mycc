@@ -1,16 +1,16 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum TokenType {
   Number(u64), // [0-9][0-9]*
   Plus,        // '+'
   Minus,       // '-'
-  // Aster,       // '*'
-  // Divides,     // '/'
-  // LParen,      // '('
-  // RParen,      // ')'
+  Aster,       // '*'
+  Slash,       // '/'
+  LParen,      // '('
+  RParen,      // ')'
   Eof,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Position {
   start: usize,
   end: usize,
@@ -25,9 +25,9 @@ impl Position {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Token {
-  ty: TokenType,
+  pub ty: TokenType,
   position: Position,
 }
 
@@ -43,20 +43,6 @@ impl Token {
     Self {
       ty: TokenType::Eof,
       position: Position::new(start, start),
-    }
-  }
-
-  fn plus(start: usize) -> Self {
-    Self {
-      ty: TokenType::Plus,
-      position: Position::new(start, start + 1),
-    }
-  }
-
-  fn minus(start: usize) -> Self {
-    Self {
-      ty: TokenType::Minus,
-      position: Position::new(start, start + 1),
     }
   }
 }
@@ -110,7 +96,7 @@ impl Lexer {
         return tokens;
       }
 
-      match self.get_token() {
+      match self.make_token() {
         Some(tok) => tokens.push(tok),
         None => tokens.push(Token::eof(self.position)),
       }
@@ -119,7 +105,7 @@ impl Lexer {
     tokens
   }
 
-  fn get_token(&mut self) -> Option<Token> {
+  fn make_token(&mut self) -> Option<Token> {
     let cur = self.current().unwrap();
     let pos = self.pos();
 
@@ -129,11 +115,45 @@ impl Lexer {
       match *cur {
         '+' => {
           self.next();
-          Some(Token::plus(pos))
+          Some(Token {
+            ty: TokenType::Plus,
+            position: Position::new(pos, pos + 1),
+          })
         }
         '-' => {
           self.next();
-          Some(Token::minus(pos))
+          Some(Token {
+            ty: TokenType::Minus,
+            position: Position::new(pos, pos + 1),
+          })
+        }
+        '*' => {
+          self.next();
+          Some(Token {
+            ty: TokenType::Aster,
+            position: Position::new(pos, pos + 1),
+          })
+        }
+        '/' => {
+          self.next();
+          Some(Token {
+            ty: TokenType::Slash,
+            position: Position::new(pos, pos + 1),
+          })
+        }
+        '(' => {
+          self.next();
+          Some(Token {
+            ty: TokenType::LParen,
+            position: Position::new(pos, pos + 1),
+          })
+        }
+        ')' => {
+          self.next();
+          Some(Token {
+            ty: TokenType::RParen,
+            position: Position::new(pos, pos + 1),
+          })
         }
         _ => panic!("Unknown char '{}' found...", *cur),
       }

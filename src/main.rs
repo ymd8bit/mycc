@@ -1,12 +1,10 @@
-#[macro_use]
 extern crate clap;
 
 mod lexer;
+mod parser;
 
 use lexer::Lexer;
-use std::env;
-// use std::fs::File;
-// use std::io::{BufRead, BufReader};
+use parser::Parser;
 
 use clap::{App, Arg};
 
@@ -27,9 +25,9 @@ fn main() -> std::io::Result<()> {
     let contents = std::fs::read_to_string(source_file_path).expect("[error] read_to_string");
     let mut lexer = Lexer::new(contents.chars().collect());
     let tokens = lexer.tokenize();
-    println!("{:#?}", tokens);
-    // let stmt_list = ModuleParser::new().parse(&contents.to_string()).unwrap();
-    // println!("{:?}", stmt_list);
+    let mut parser = Parser::new(tokens);
+    let expr = parser.parse();
+    println!("{:?}", expr);
 
     Ok(())
 }
