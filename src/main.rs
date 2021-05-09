@@ -25,10 +25,9 @@ fn main() -> std::io::Result<()> {
     let contents = std::fs::read_to_string(source_file_path).expect("[error] read_to_string");
     let mut lexer = Lexer::new(contents.chars().collect());
     let tokens = lexer.tokenize();
-    println!("{:?}", tokens);
     let mut parser = Parser::new(tokens);
     let expr = parser.parse();
-    // println!("{:?}", expr);
+    println!("{:?}", expr);
 
     Ok(())
 }
