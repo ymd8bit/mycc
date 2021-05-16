@@ -216,32 +216,32 @@ impl Lexer {
 
 #[test]
 fn test_lexer() {
-  test_tokenize("+", r#"TokenList[Token('+', (0, 1))]"#);
-  test_tokenize("-", r#"TokenList[Token('-', (0, 1))]"#);
-  test_tokenize("*", r#"TokenList[Token('*', (0, 1))]"#);
-  test_tokenize("/", r#"TokenList[Token('/', (0, 1))]"#);
-  test_tokenize(";", r#"TokenList[Token(';', (0, 1))]"#);
-  test_tokenize("=", r#"TokenList[Token('=', (0, 1))]"#);
-  test_tokenize("==", r#"TokenList[Token('==', (0, 2))]"#);
-  test_tokenize("!", r#"TokenList[Token('!', (0, 1))]"#);
-  test_tokenize("!=", r#"TokenList[Token('!=', (0, 2))]"#);
-  test_tokenize(">", r#"TokenList[Token('>', (0, 1))]"#);
-  test_tokenize(">=", r#"TokenList[Token('>=', (0, 2))]"#);
-  test_tokenize("<", r#"TokenList[Token('<', (0, 1))]"#);
-  test_tokenize("<=", r#"TokenList[Token('<=', (0, 2))]"#);
+  test_tokenize("+", r#"TokenList[Token('+', @[0,1])]"#);
+  test_tokenize("-", r#"TokenList[Token('-', @[0,1])]"#);
+  test_tokenize("*", r#"TokenList[Token('*', @[0,1])]"#);
+  test_tokenize("/", r#"TokenList[Token('/', @[0,1])]"#);
+  test_tokenize(";", r#"TokenList[Token(';', @[0,1])]"#);
+  test_tokenize("=", r#"TokenList[Token('=', @[0,1])]"#);
+  test_tokenize("==", r#"TokenList[Token('==', @[0,2])]"#);
+  test_tokenize("!", r#"TokenList[Token('!', @[0,1])]"#);
+  test_tokenize("!=", r#"TokenList[Token('!=', @[0,2])]"#);
+  test_tokenize(">", r#"TokenList[Token('>', @[0,1])]"#);
+  test_tokenize(">=", r#"TokenList[Token('>=', @[0,2])]"#);
+  test_tokenize("<", r#"TokenList[Token('<', @[0,1])]"#);
+  test_tokenize("<=", r#"TokenList[Token('<=', @[0,2])]"#);
 
   test_tokenize(
     ">==>",
-    r#"TokenList[Token('>=', (0, 2)), Token('=', (2, 3)), Token('>', (3, 4))]"#,
+    r#"TokenList[Token('>=', @[0,2]), Token('=', @[2,3]), Token('>', @[3,4])]"#,
   );
 
   test_tokenize(
     "1 + 2",
-    r#"TokenList[Token(Num(1), (0, 1)), Token('+', (2, 3)), Token(Num(2), (4, 5))]"#,
+    r#"TokenList[Token(Num(1), @[0,1]), Token('+', @[2,3]), Token(Num(2), @[4,5])]"#,
   );
   test_tokenize(
     "-5 + (4 - 20) * 4",
-    r#"TokenList[Token('-', (0, 1)), Token(Num(5), (1, 2)), Token('+', (3, 4)), Token('(', (5, 6)), Token(Num(4), (6, 7)), Token('-', (8, 9)), Token(Num(20), (10, 12)), Token(')', (12, 13)), Token('*', (14, 15)), Token(Num(4), (16, 17))]"#,
+    r#"TokenList[Token('-', @[0,1]), Token(Num(5), @[1,2]), Token('+', @[3,4]), Token('(', @[5,6]), Token(Num(4), @[6,7]), Token('-', @[8,9]), Token(Num(20), @[10,12]), Token(')', @[12,13]), Token('*', @[14,15]), Token(Num(4), @[16,17])]"#,
   );
 }
 

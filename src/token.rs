@@ -1,6 +1,9 @@
+use crate::utils::ToSimpleString;
+use std::cmp::PartialEq;
 use std::fmt;
+use std::ops::{Index, IndexMut};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenType {
   Number(u64), // [0-9][0-9]*
   Plus,        // '+'
@@ -21,31 +24,43 @@ pub enum TokenType {
   Eof,
 }
 
-impl fmt::Display for TokenType {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl ToSimpleString for TokenType {
+  fn to_simple_string(&self) -> String {
     match self {
-      TokenType::Number(x) => write!(f, "Num({})", x),
-      TokenType::Plus => write!(f, "'+'"),
-      TokenType::Minus => write!(f, "'-'"),
-      TokenType::Aster => write!(f, "'*'"),
-      TokenType::Slash => write!(f, "'/'"),
-      TokenType::LParen => write!(f, "'('"),
-      TokenType::RParen => write!(f, "')'"),
-      TokenType::Assign => write!(f, "'='"),
-      TokenType::Not => write!(f, "'!'"),
-      TokenType::Eq => write!(f, "'=='"),
-      TokenType::Ne => write!(f, "'!='"),
-      TokenType::Lt => write!(f, "'<'"),
-      TokenType::Le => write!(f, "'<='"),
-      TokenType::Gt => write!(f, "'>'"),
-      TokenType::Ge => write!(f, "'>='"),
-      TokenType::Semicolon => write!(f, "';'"),
-      TokenType::Eof => write!(f, "<EOF>"),
+      TokenType::Number(x) => format!("Num({})", x),
+      TokenType::Plus => String::from("'+'"),
+      TokenType::Minus => String::from("'-'"),
+      TokenType::Aster => String::from("'*'"),
+      TokenType::Slash => String::from("'/'"),
+      TokenType::LParen => String::from("'('"),
+      TokenType::RParen => String::from("')'"),
+      TokenType::Assign => String::from("'='"),
+      TokenType::Not => String::from("'!'"),
+      TokenType::Eq => String::from("'=='"),
+      TokenType::Ne => String::from("'!='"),
+      TokenType::Lt => String::from("'<'"),
+      TokenType::Le => String::from("'<='"),
+      TokenType::Gt => String::from("'>'"),
+      TokenType::Ge => String::from("'>='"),
+      TokenType::Semicolon => String::from("';'"),
+      TokenType::Eof => String::from("<EOF>"),
     }
   }
 }
 
-#[derive(Debug)]
+impl fmt::Display for TokenType {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}", self.to_simple_string())
+  }
+}
+
+// impl fmt::Display for TokenType {
+//   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//     write!(f, "{}", self.to_pretty_string())
+//   }
+// }
+
+#[derive(Debug, Clone, Copy)]
 pub struct Position {
   start: usize,
   end: usize,
@@ -60,17 +75,33 @@ impl Position {
   }
 }
 
+impl ToSimpleString for Position {
+  fn to_simple_string(&self) -> String {
+    format!("@[{},{}]", self.start, self.end)
+  }
+}
+
+impl fmt::Display for Position {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}", self.to_simple_string())
+  }
+}
+
 #[derive(Debug)]
 pub struct Token {
   pub ty: TokenType,
   pub position: Position,
 }
 
+impl ToSimpleString for Token {
+  fn to_simple_string(&self) -> String {
+    format!("Token({}, {})", self.ty, self.position)
+  }
+}
+
 impl fmt::Display for Token {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let start = self.position.start;
-    let end = self.position.end;
-    write!(f, "Token({}, ({}, {}))", self.ty, start, end)
+    write!(f, "{}", self.to_simple_string())
   }
 }
 
@@ -94,25 +125,49 @@ pub struct TokenList {
   pub tokens: Vec<Token>,
 }
 
-impl fmt::Display for TokenList {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "TokenList[").expect("unable to write");
-    for (i, token) in self.tokens.iter().enumerate() {
-      if i != 0 {
-        write!(f, ", ").expect("unable to write");
-      }
-      write!(f, "{}", token).expect("unable to write");
-    }
-    write!(f, "]")
-  }
-}
-
 impl TokenList {
   pub fn new() -> Self {
     TokenList { tokens: Vec::new() }
   }
 
+  pub fn len(&self) -> usize {
+    self.tokens.len()
+  }
+
   pub fn push(&mut self, token: Token) {
     self.tokens.push(token);
+  }
+}
+
+impl ToSimpleString for TokenList {
+  fn to_simple_string(&self) -> String {
+    let mut s = String::from("TokenList[");
+    for (i, token) in self.tokens.iter().enumerate() {
+      if i != 0 {
+        s.push_str(", ");
+      }
+      s.push_str(&format!("{}", token));
+    }
+    s.push_str("]");
+    s
+  }
+}
+
+impl fmt::Display for TokenList {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}", self.to_simple_string())
+  }
+}
+
+impl Index<usize> for TokenList {
+  type Output = Token;
+  fn index<'a>(&'a self, i: usize) -> &'a Token {
+    &self.tokens[i]
+  }
+}
+
+impl IndexMut<usize> for TokenList {
+  fn index_mut<'a>(&'a mut self, i: usize) -> &'a mut Token {
+    &mut self.tokens[i]
   }
 }
