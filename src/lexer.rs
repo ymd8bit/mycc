@@ -1,51 +1,4 @@
-#[derive(Debug)]
-pub enum TokenType {
-  Number(u64), // [0-9][0-9]*
-  Plus,        // '+'
-  Minus,       // '-'
-  Aster,       // '*'
-  Slash,       // '/'
-  LParen,      // '('
-  RParen,      // ')'
-  Eof,
-}
-
-#[derive(Debug)]
-pub struct Position {
-  start: usize,
-  end: usize,
-}
-
-impl Position {
-  fn new(start: usize, end: usize) -> Self {
-    Self {
-      start: start,
-      end: end,
-    }
-  }
-}
-
-#[derive(Debug)]
-pub struct Token {
-  pub ty: TokenType,
-  position: Position,
-}
-
-impl Token {
-  fn num(n: u64, start: usize, end: usize) -> Self {
-    Self {
-      ty: TokenType::Number(n),
-      position: Position::new(start, end),
-    }
-  }
-
-  fn eof(start: usize) -> Self {
-    Self {
-      ty: TokenType::Eof,
-      position: Position::new(start, start),
-    }
-  }
-}
+use crate::token::{Position, Token, TokenList, TokenType};
 
 pub struct Lexer {
   input: Vec<char>,
@@ -80,14 +33,28 @@ impl Lexer {
     self.position += 1;
   }
 
+  fn consume(&mut self, expect: &char) -> bool {
+    match self.current() {
+      Some(next_char) => {
+        if next_char == expect {
+          self.next();
+          true
+        } else {
+          false
+        }
+      }
+      None => false,
+    }
+  }
+
   fn skip_space(&mut self) {
     while self.current().is_some() && self.current().unwrap().is_whitespace() {
       self.next();
     }
   }
 
-  pub fn tokenize(&mut self) -> Vec<Token> {
-    let mut tokens = Vec::new();
+  pub fn tokenize(&mut self) -> TokenList {
+    let mut tokens = TokenList::new();
 
     while self.current().is_some() {
       self.skip_space();
@@ -155,6 +122,69 @@ impl Lexer {
             position: Position::new(pos, pos + 1),
           })
         }
+        '=' => {
+          self.next();
+          if self.consume(&'=') {
+            Some(Token {
+              ty: TokenType::Eq,
+              position: Position::new(pos, pos + 2),
+            })
+          } else {
+            Some(Token {
+              ty: TokenType::Assign,
+              position: Position::new(pos, pos + 1),
+            })
+          }
+        }
+        '!' => {
+          self.next();
+          if self.consume(&'=') {
+            Some(Token {
+              ty: TokenType::Ne,
+              position: Position::new(pos, pos + 2),
+            })
+          } else {
+            Some(Token {
+              ty: TokenType::Not,
+              position: Position::new(pos, pos + 1),
+            })
+          }
+        }
+        '<' => {
+          self.next();
+          if self.consume(&'=') {
+            Some(Token {
+              ty: TokenType::Le,
+              position: Position::new(pos, pos + 2),
+            })
+          } else {
+            Some(Token {
+              ty: TokenType::Lt,
+              position: Position::new(pos, pos + 1),
+            })
+          }
+        }
+        '>' => {
+          self.next();
+          if self.consume(&'=') {
+            Some(Token {
+              ty: TokenType::Ge,
+              position: Position::new(pos, pos + 2),
+            })
+          } else {
+            Some(Token {
+              ty: TokenType::Gt,
+              position: Position::new(pos, pos + 1),
+            })
+          }
+        }
+        ';' => {
+          self.next();
+          Some(Token {
+            ty: TokenType::Semicolon,
+            position: Position::new(pos, pos + 1),
+          })
+        }
         _ => panic!("Unknown char '{}' found...", *cur),
       }
     }
@@ -186,18 +216,37 @@ impl Lexer {
 
 #[test]
 fn test_lexer() {
+  test_tokenize("+", r#"TokenList[Token('+', (0, 1))]"#);
+  test_tokenize("-", r#"TokenList[Token('-', (0, 1))]"#);
+  test_tokenize("*", r#"TokenList[Token('*', (0, 1))]"#);
+  test_tokenize("/", r#"TokenList[Token('/', (0, 1))]"#);
+  test_tokenize(";", r#"TokenList[Token(';', (0, 1))]"#);
+  test_tokenize("=", r#"TokenList[Token('=', (0, 1))]"#);
+  test_tokenize("==", r#"TokenList[Token('==', (0, 2))]"#);
+  test_tokenize("!", r#"TokenList[Token('!', (0, 1))]"#);
+  test_tokenize("!=", r#"TokenList[Token('!=', (0, 2))]"#);
+  test_tokenize(">", r#"TokenList[Token('>', (0, 1))]"#);
+  test_tokenize(">=", r#"TokenList[Token('>=', (0, 2))]"#);
+  test_tokenize("<", r#"TokenList[Token('<', (0, 1))]"#);
+  test_tokenize("<=", r#"TokenList[Token('<=', (0, 2))]"#);
+
+  test_tokenize(
+    ">==>",
+    r#"TokenList[Token('>=', (0, 2)), Token('=', (2, 3)), Token('>', (3, 4))]"#,
+  );
+
   test_tokenize(
     "1 + 2",
-    r#"[Token { ty: Number(1), position: Position { start: 0, end: 1 } }, Token { ty: Plus, position: Position { start: 2, end: 3 } }, Token { ty: Number(2), position: Position { start: 4, end: 5 } }]"#,
+    r#"TokenList[Token(Num(1), (0, 1)), Token('+', (2, 3)), Token(Num(2), (4, 5))]"#,
   );
   test_tokenize(
     "-5 + (4 - 20) * 4",
-    r#"[Token { ty: Minus, position: Position { start: 0, end: 1 } }, Token { ty: Number(5), position: Position { start: 1, end: 2 } }, Token { ty: Plus, position: Position { start: 3, end: 4 } }, Token { ty: LParen, position: Position { start: 5, end: 6 } }, Token { ty: Number(4), position: Position { start: 6, end: 7 } }, Token { ty: Minus, position: Position { start: 8, end: 9 } }, Token { ty: Number(20), position: Position { start: 10, end: 12 } }, Token { ty: RParen, position: Position { start: 12, end: 13 } }, Token { ty: Aster, position: Position { start: 14, end: 15 } }, Token { ty: Number(4), position: Position { start: 16, end: 17 } }]"#,
+    r#"TokenList[Token('-', (0, 1)), Token(Num(5), (1, 2)), Token('+', (3, 4)), Token('(', (5, 6)), Token(Num(4), (6, 7)), Token('-', (8, 9)), Token(Num(20), (10, 12)), Token(')', (12, 13)), Token('*', (14, 15)), Token(Num(4), (16, 17))]"#,
   );
 }
 
 #[cfg(test)]
 fn test_tokenize(input: &str, expected: &str) {
   let mut lexer = Lexer::new(input.chars().collect());
-  assert_eq!(format!("{:?}", lexer.tokenize()), expected);
+  assert_eq!(format!("{}", lexer.tokenize()), expected);
 }

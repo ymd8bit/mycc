@@ -2,6 +2,7 @@ extern crate clap;
 
 mod lexer;
 mod parser;
+mod token;
 
 use lexer::Lexer;
 use parser::Parser;
@@ -24,8 +25,9 @@ fn main() -> std::io::Result<()> {
 
     let contents = std::fs::read_to_string(source_file_path).expect("[error] read_to_string");
     let mut lexer = Lexer::new(contents.chars().collect());
-    let tokens = lexer.tokenize();
-    let mut parser = Parser::new(tokens);
+    let token_list = lexer.tokenize();
+    println!("{}", token_list);
+    let mut parser = Parser::new(token_list);
     let expr = parser.parse();
     println!("{:?}", expr);
 
