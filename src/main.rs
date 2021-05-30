@@ -1,16 +1,19 @@
 extern crate clap;
 
+mod ast;
+mod codegen;
+// mod ir;
 mod lexer;
-mod module;
 mod parser;
 mod token;
 mod utils;
 
-use lexer::Lexer;
-use module::Module;
-use parser::Parser;
-
 use clap::{App, Arg};
+use codegen::x86::Codegen;
+use lexer::Lexer;
+use parser::Parser;
+use std::path::Path;
+use std::process::Command;
 
 fn main() -> std::io::Result<()> {
     let matches = App::new("mycc")
@@ -29,9 +32,27 @@ fn main() -> std::io::Result<()> {
     let contents = std::fs::read_to_string(source_file_path).expect("[error] read_to_string");
     let mut lexer = Lexer::new(contents.chars().collect());
     let token_list = lexer.tokenize();
+    println!("{}", token_list);
     let mut parser = Parser::new(token_list);
     let module = parser.parse();
     println!("{}", module);
+    let mut gen = Codegen::new();
+
+    let tmp_dir = Path::new("tmp/").canonicalize().unwrap();
+    let tmp_asm_path = tmp_dir.join("tmp.s");
+    let tmp_elf_path = tmp_dir.join("tmp.elf");
+
+    gen.export(&tmp_asm_path, module);
+    let _ = Command::new("gcc")
+        .arg("-o")
+        .arg(&tmp_elf_path)
+        .arg(&tmp_asm_path)
+        .output()
+        .expect("[Error] failed in the compilation...");
+    let status = Command::new(&tmp_elf_path)
+        .status()
+        .expect("[Error] failed to run elf...");
+    println!("[Result] {}", status);
 
     Ok(())
 }

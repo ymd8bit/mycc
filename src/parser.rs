@@ -1,5 +1,5 @@
+use crate::ast::*;
 use crate::lexer::Lexer;
-use crate::module::*;
 use crate::token::{Position, Token, TokenList, TokenType};
 use crate::utils::ToSimpleString;
 
@@ -36,14 +36,6 @@ impl Parser {
     self.index >= self.token_list.len()
   }
 
-  fn peek(&mut self) -> Option<&Token> {
-    if self.index + 1 < self.token_list.len() {
-      Some(&self.token_list[self.index + 1])
-    } else {
-      None
-    }
-  }
-
   fn next(&mut self) {
     self.index += 1;
   }
@@ -63,10 +55,9 @@ impl Parser {
 
   pub fn parse(&mut self) -> Box<Module> {
     let mut module = Box::new(Module::new());
-    loop {
+    while !self.on_eof() {
       match self.parse_stmt() {
         Some(stmt) => {
-          println!("{}", stmt);
           module.add_stmt(stmt);
         }
         None => break,
@@ -83,11 +74,7 @@ impl Parser {
         None => panic!("Expected ';' but <EOF> found..."),
       };
     }
-    if self.on_eof() {
-      None
-    } else {
-      Some(Box::new(Stmt::ExprStmt { expr: expr }))
-    }
+    Some(Box::new(Stmt::ExprStmt { expr: expr }))
   }
 
   fn parse_expr(&mut self, precedence: Precedence) -> Option<Box<Expr>> {
@@ -177,13 +164,6 @@ impl Parser {
     Self::token_precedence(self.current().unwrap())
   }
 
-  fn peek_precedence(&mut self) -> Precedence {
-    match self.peek() {
-      Some(token) => Self::token_precedence(token),
-      None => Precedence::LOWEST,
-    }
-  }
-
   fn token_precedence(token: &Token) -> Precedence {
     match token.ty {
       TokenType::Plus | TokenType::Minus => Precedence::SUM,
@@ -195,13 +175,10 @@ impl Parser {
 
 #[test]
 fn test_parser() {
+  test_parse("1 + 2;", r#"Stmt(Add@[2,3]{Num@[0,1]{1}, Num@[4,5]{2}})"#);
   test_parse(
-    "1 + 2",
-    r#"Some(BinaryOp { op: Add, lhs: Number(1), rhs: Number(2) })"#,
-  );
-  test_parse(
-    "-5 + (4 - 20) * 4",
-    "Some(BinaryOp { op: Add, lhs: UnaryOp { op: Minus, rhs: Number(5) }, rhs: BinaryOp { op: Mul, lhs: BinaryOp { op: Sub, lhs: Number(4), rhs: Number(20) }, rhs: Number(4) } })"
+    "-5 + (4 - 20) * 4;",
+    r#"Stmt(Add@[3,4]{Minus@[0,1]{Num@[1,2]{5}}, Mul@[14,15]{Sub@[8,9]{Num@[6,7]{4}, Num@[10,12]{20}}, Num@[16,17]{4}}})"#,
   );
 }
 
@@ -210,5 +187,6 @@ fn test_parse(input: &str, expected: &str) {
   let mut lexer = Lexer::new(input.chars().collect());
   let token_list = lexer.tokenize();
   let mut parser = Parser::new(token_list);
-  assert_eq!(format!("{:?}", parser.parse()), expected);
+  let module = parser.parse();
+  assert_eq!(format!("{}", module.stmt_list[0]), expected);
 }

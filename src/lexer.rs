@@ -9,6 +9,10 @@ fn is_number(c: char) -> bool {
   c.is_ascii_digit()
 }
 
+fn is_id(c: char) -> bool {
+  c.is_alphabetic()
+}
+
 impl Lexer {
   pub fn new(input: Vec<char>) -> Lexer {
     Lexer {
@@ -78,6 +82,8 @@ impl Lexer {
 
     if is_number(*cur) {
       Some(self.make_number())
+    } else if is_id(*cur) {
+      Some(self.make_id())
     } else {
       match *cur {
         '+' => {
@@ -119,6 +125,20 @@ impl Lexer {
           self.next();
           Some(Token {
             ty: TokenType::RParen,
+            position: Position::new(pos, pos + 1),
+          })
+        }
+        '{' => {
+          self.next();
+          Some(Token {
+            ty: TokenType::LBrace,
+            position: Position::new(pos, pos + 1),
+          })
+        }
+        '}' => {
+          self.next();
+          Some(Token {
+            ty: TokenType::RBrace,
             position: Position::new(pos, pos + 1),
           })
         }
@@ -211,6 +231,25 @@ impl Lexer {
       }
       Err(_) => panic!("Invalid number found..."),
     }
+  }
+
+  fn make_id(&mut self) -> Token {
+    use std::iter::FromIterator;
+    let cur = self.current().unwrap();
+    let pos = self.pos();
+    let mut id = vec![*cur];
+
+    while let Some(next_char) = self.peek() {
+      if next_char.is_alphanumeric() {
+        id.push(*next_char);
+        self.next();
+      } else {
+        break;
+      }
+    }
+
+    self.next();
+    Token::id(String::from_iter(id), pos, self.position)
   }
 }
 

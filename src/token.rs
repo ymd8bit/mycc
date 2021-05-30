@@ -5,6 +5,7 @@ use std::ops::{Index, IndexMut};
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
+  Id(String),  // ([a-z|A-Z|_])([a-z|A-Z|_|0-9])*
   Number(u64), // [0-9][0-9]*
   Plus,        // '+'
   Minus,       // '-'
@@ -12,6 +13,8 @@ pub enum TokenType {
   Slash,       // '/'
   LParen,      // '('
   RParen,      // ')'
+  LBrace,      // '{'
+  RBrace,      // '}'
   Assign,      // '='
   Not,         // '!'
   Eq,          // '=='
@@ -20,13 +23,15 @@ pub enum TokenType {
   Gt,          // '>'
   Le,          // '<='
   Ge,          // '>='
-  Semicolon,
+  Semicolon,   // ';'
+  Comma,       // ','
   Eof,
 }
 
 impl ToSimpleString for TokenType {
   fn to_simple_string(&self) -> String {
     match self {
+      TokenType::Id(x) => format!("Id({})", x),
       TokenType::Number(x) => format!("Num({})", x),
       TokenType::Plus => String::from("'+'"),
       TokenType::Minus => String::from("'-'"),
@@ -34,6 +39,8 @@ impl ToSimpleString for TokenType {
       TokenType::Slash => String::from("'/'"),
       TokenType::LParen => String::from("'('"),
       TokenType::RParen => String::from("')'"),
+      TokenType::LBrace => String::from("'{'"),
+      TokenType::RBrace => String::from("'}'"),
       TokenType::Assign => String::from("'='"),
       TokenType::Not => String::from("'!'"),
       TokenType::Eq => String::from("'=='"),
@@ -43,6 +50,7 @@ impl ToSimpleString for TokenType {
       TokenType::Gt => String::from("'>'"),
       TokenType::Ge => String::from("'>='"),
       TokenType::Semicolon => String::from("';'"),
+      TokenType::Comma => String::from("','"),
       TokenType::Eof => String::from("<EOF>"),
     }
   }
@@ -109,6 +117,13 @@ impl Token {
   pub fn num(n: u64, start: usize, end: usize) -> Self {
     Self {
       ty: TokenType::Number(n),
+      position: Position::new(start, end),
+    }
+  }
+
+  pub fn id(s: String, start: usize, end: usize) -> Self {
+    Self {
+      ty: TokenType::Id(s),
       position: Position::new(start, end),
     }
   }
