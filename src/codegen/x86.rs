@@ -1,8 +1,44 @@
 use crate::ast::*;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::Path;
+
+struct Env {
+  sym_table: HashMap<String, usize>,
+  index: usize,
+}
+impl Env {
+  fn new() -> Self {
+    Env {
+      sym_table: HashMap::new(),
+      index: 0,
+    }
+  }
+
+  fn alloc(&mut self, var_name: &str) -> usize {
+    let offset = self.index * 8;
+    self.sym_table.insert(String::from(var_name), offset);
+    self.index += 1;
+    offset
+  }
+
+  fn get_offset(&mut self, var_name: &str) -> Option<usize> {
+    match self.sym_table.get(var_name) {
+      Some(offset) => Some(offset.clone()),
+      None => None,
+    }
+  }
+
+  // fn allocated(&mut self, var_name: &str) -> bool {
+  //   self.sym_table.contains_key(var_name)
+  // }
+
+  // fn num_vars(&self) -> usize {
+  //   self.sym_table.len()
+  // }
+}
 
 pub struct Codegen {
   pub code_list: Vec<String>,
@@ -41,7 +77,15 @@ impl Codegen {
 
   fn gen_module(&mut self, module: Box<Module>) {
     self.gen_module_prolouge();
-    self.gen_fn("main", module.stmt_list);
+
+    for stmt in module.stmt_list {
+      match *stmt {
+        Stmt::FnStmt { name, args, body } => {
+          self.gen_fn(&name, args, body);
+        }
+        _ => panic!("currently FnStmt is only supported..."),
+      }
+    }
   }
 
   fn gen_module_prolouge(&mut self) {
@@ -57,22 +101,26 @@ impl Codegen {
     self.set_newline();
   }
 
-  pub fn gen_fn(&mut self, fn_name: &str, stmt_list: Vec<Box<Stmt>>) {
-    self.gen_fn_prolouge(fn_name);
-    self.gen_fn_body(fn_name, stmt_list);
-    self.gen_fn_epilouge(fn_name);
+  fn gen_fn(&mut self, name: &str, args: ArgList, body: Vec<Box<Stmt>>) {
+    let mut env = Env::new();
+    for arg in args.container.iter() {
+      env.alloc(&arg.name);
+    }
+    self.gen_fn_prolouge(&name, &env);
+    self.gen_fn_body(&name, args, body, &mut env);
+    self.gen_fn_epilouge(&name);
   }
 
-  pub fn gen_fn_prolouge(&mut self, fn_name: &str) {
-    self.set(&format!("{}:", fn_name));
+  fn gen_fn_prolouge(&mut self, name: &str, _env: &Env) {
+    self.set(&format!("{}:", name));
     self.inc_indent();
     self.set("push rbp");
     self.set("mov rbp, rsp");
-    self.set(&format!("# function '{}' begin", fn_name));
+    self.set(&format!("# function '{}' begin", name));
   }
 
-  pub fn gen_fn_epilouge(&mut self, fn_name: &str) {
-    self.set(&format!("# function '{}' end", fn_name));
+  fn gen_fn_epilouge(&mut self, name: &str) {
+    self.set(&format!("# function '{}' end", name));
     self.set("pop rax");
     self.set("mov rsp, rbp");
     self.set("pop rbp");
@@ -80,17 +128,41 @@ impl Codegen {
     self.dec_indent();
   }
 
-  pub fn gen_fn_body(&mut self, fn_name: &str, stmt_list: Vec<Box<Stmt>>) {
-    for stmt in stmt_list {
+  fn gen_fn_body(&mut self, _name: &str, _args: ArgList, body: Vec<Box<Stmt>>, env: &mut Env) {
+    for stmt in body {
       match *stmt {
-        Stmt::ExprStmt { expr } => self.gen_expr(expr),
-        _ => panic!("FnStmt is not supported now..."),
+        Stmt::ExprStmt { expr } => self.gen_expr(expr, env),
+        _ => panic!("FnStmt is not supported in a function..."),
       }
     }
   }
 
-  pub fn gen_expr(&mut self, expr: Box<Expr>) {
+  fn gen_lvalue(&mut self, expr: Box<Expr>, env: &mut Env) {
     match *expr {
+      Expr::Id { name, position: _ } => {
+        let offset = match env.get_offset(&name) {
+          Some(offset) => offset,
+          None => env.alloc(&name),
+        };
+        self.set("mov rax, rbp");
+        self.set(&format!("sub rax, {}", offset));
+        self.set("push rax");
+      }
+      _ => panic!("Only Id can be refered as lvalue..."),
+    }
+  }
+
+  fn gen_expr(&mut self, expr: Box<Expr>, env: &mut Env) {
+    match *expr {
+      Expr::Id {
+        name: _,
+        position: _,
+      } => {
+        self.gen_lvalue(expr, env);
+        self.set("pop rax");
+        self.set("mov rax, [rax]");
+        self.set("push rax");
+      }
       Expr::Number { value, position: _ } => {
         self.set(&format!("push {}", value));
       }
@@ -99,7 +171,7 @@ impl Codegen {
         rhs,
         position: _,
       } => {
-        self.gen_expr(rhs);
+        self.gen_expr(rhs, env);
         self.set("pop rdi");
         self.set("mov rax, 0");
         match op {
@@ -114,19 +186,32 @@ impl Codegen {
         rhs,
         position: _,
       } => {
-        self.gen_expr(lhs);
-        self.gen_expr(rhs);
-        self.set("pop rdi");
-        self.set("pop rax");
         match op {
-          BinaryOpType::Add => self.set("add rax, rdi"),
-          BinaryOpType::Sub => self.set("sub rax, rdi"),
-          BinaryOpType::Mul => self.set("imul rax, rdi"),
-          BinaryOpType::Div => {
-            self.set("cqo");
-            self.set("idiv rdi");
+          BinaryOpType::Assign => {
+            self.gen_lvalue(lhs, env);
+            self.gen_expr(rhs, env);
+            self.set("pop rdi");
+            self.set("pop rax");
+            self.set("mov [rax], rdi");
+            self.set("push rdi");
           }
-        }
+          _ => {
+            self.gen_expr(lhs, env);
+            self.gen_expr(rhs, env);
+            self.set("pop rdi");
+            self.set("pop rax");
+            match op {
+              BinaryOpType::Add => self.set("add rax, rdi"),
+              BinaryOpType::Sub => self.set("sub rax, rdi"),
+              BinaryOpType::Mul => self.set("imul rax, rdi"),
+              BinaryOpType::Div => {
+                self.set("cqo");
+                self.set("idiv rdi");
+              }
+              _ => (),
+            };
+          }
+        };
         self.set("push rax");
       }
     }

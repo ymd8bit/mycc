@@ -29,7 +29,7 @@ pub enum BinaryOpType {
   Sub,
   Mul,
   Div,
-  // Assign,
+  Assign,
   // Lt,
   // Ne,
   // Gt,
@@ -44,6 +44,7 @@ impl ToSimpleString for BinaryOpType {
       BinaryOpType::Sub => String::from("Sub"),
       BinaryOpType::Mul => String::from("Mul"),
       BinaryOpType::Div => String::from("Div"),
+      BinaryOpType::Assign => String::from("Assign"),
     }
   }
 }
@@ -56,6 +57,10 @@ impl fmt::Display for BinaryOpType {
 
 #[derive(Debug)]
 pub enum Expr {
+  Id {
+    name: String,
+    position: Position,
+  },
   Number {
     value: u64,
     position: Position,
@@ -76,6 +81,7 @@ pub enum Expr {
 impl ToSimpleString for Expr {
   fn to_simple_string(&self) -> String {
     match self {
+      Expr::Id { name, position } => format!("Id{}{{{}}}", position, name),
       Expr::Number { value, position } => format!("Num{}{{{}}}", position, value),
       Expr::UnaryOp { op, rhs, position } => format!("{}{}{{{}}}", op, position, rhs),
       Expr::BinaryOp {
@@ -94,7 +100,7 @@ impl fmt::Display for Expr {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Arg {
   pub name: String,
 }
@@ -108,15 +114,33 @@ impl fmt::Display for Arg {
     write!(f, "{}", self.to_simple_string())
   }
 }
+
 #[derive(Debug)]
 pub struct ArgList {
-  pub args: Vec<Arg>,
+  pub container: Vec<Arg>,
+  index: usize,
+}
+impl ArgList {
+  pub fn new() -> Self {
+    ArgList {
+      container: Vec::new(),
+      index: 0,
+    }
+  }
+
+  // pub fn len(&self) -> usize {
+  //   self.container.len()
+  // }
+
+  pub fn push(&mut self, arg: Arg) {
+    self.container.push(arg);
+  }
 }
 
 impl ToSimpleString for ArgList {
   fn to_simple_string(&self) -> String {
     let mut args_str = String::from("[");
-    for (i, arg) in self.args.iter().enumerate() {
+    for (i, arg) in self.container.iter().enumerate() {
       if i != 0 {
         args_str.push_str(", ");
       }

@@ -1,14 +1,14 @@
 use crate::ast::*;
 use crate::lexer::Lexer;
 use crate::token::{Position, Token, TokenList, TokenType};
-use crate::utils::ToSimpleString;
 
 #[derive(PartialOrd, PartialEq)]
 enum Precedence {
   LOWEST = 0x0,
-  SUM = 0x1,
-  PRODUCT = 0x2,
-  PREFIX = 0x3,
+  ASSIGN = 0x1,
+  SUM = 0x2,
+  PRODUCT = 0x3,
+  PREFIX = 0x4,
 }
 
 pub struct Parser {
@@ -38,14 +38,6 @@ impl Parser {
     } else {
       panic!("Unexpectedly reached to <EOF>...");
     }
-  }
-
-  fn current_is(&self, expect_type: TokenType) -> bool {
-    if self.current().is_none() {
-      return false;
-    }
-    let cur = self.current().unwrap();
-    cur.ty == expect_type
   }
 
   fn peek(&self) -> Option<&Token> {
@@ -128,6 +120,7 @@ impl Parser {
   pub fn parse_fn(&mut self) -> Box<Stmt> {
     let (name, args) = self.parse_prototype();
     let block = self.parse_stmt_block();
+
     Box::new(Stmt::FnStmt {
       name: name,
       args: args,
@@ -148,21 +141,23 @@ impl Parser {
       .consume(TokenType::LParen)
       .expect("Expect ( but not found...");
 
-    if self.current_is(TokenType::RParen) {
-      return ArgList { args: Vec::new() };
+    // No argment patern: "{fn_name}()"
+    if self.consume(TokenType::RParen).is_some() {
+      return ArgList::new();
     }
 
-    let mut args = Vec::new();
+    let mut args = ArgList::new();
     let first_arg = self.parse_arg();
+    args.push(first_arg);
 
-    // Patern: "{fn_name}(first_arg (, arg)*)"
+    // with argments patern: "{fn_name}(first_arg (, arg)*)"
     while self.consume(TokenType::RParen).is_none() {
       self.consume_or_panic(TokenType::Comma);
       let arg = self.parse_arg();
       args.push(arg);
     }
 
-    ArgList { args: args }
+    args
   }
 
   pub fn parse_arg(&mut self) -> Arg {
@@ -176,12 +171,13 @@ impl Parser {
     self.consume_or_panic(TokenType::LBrace);
     let mut stmt_block = Vec::new();
     while self.consume(TokenType::RBrace).is_none() {
-      println!("{}", self.current_or_panic());
       match self.parse_stmt() {
         Some(stmt) => {
           stmt_block.push(stmt);
         }
-        None => break,
+        None => {
+          break;
+        }
       }
     }
     stmt_block
@@ -201,12 +197,21 @@ impl Parser {
     Some(lhs)
   }
 
+  fn parse_id(&mut self) -> Option<Box<Expr>> {
+    let token = self.current()?;
+    let pos = token.position;
+    let name = token.get_id_string();
+    self.next();
+    Some(Box::new(Expr::Id {
+      name: name,
+      position: pos,
+    }))
+  }
+
   fn parse_number(&mut self) -> Option<Box<Expr>> {
     let token = self.current()?;
     let pos = token.position;
     match token.ty {
-      TokenType::Plus => self.make_unary_op(UnaryOpType::Plus),
-      TokenType::Minus => self.make_unary_op(UnaryOpType::Minus),
       TokenType::Number(v) => {
         self.next();
         Some(Box::new(Expr::Number {
@@ -223,6 +228,7 @@ impl Parser {
     match token.ty {
       TokenType::Plus => self.make_unary_op(UnaryOpType::Plus),
       TokenType::Minus => self.make_unary_op(UnaryOpType::Minus),
+      TokenType::Id(_) => self.parse_id(),
       TokenType::Number(_) => self.parse_number(),
       TokenType::LParen => self.parse_grouped_expr(),
       _ => None,
@@ -236,6 +242,7 @@ impl Parser {
       TokenType::Minus => BinaryOpType::Sub,
       TokenType::Aster => BinaryOpType::Mul,
       TokenType::Slash => BinaryOpType::Div,
+      TokenType::Assign => BinaryOpType::Assign,
       _ => return Some(lhs),
     };
     let pos = token.position;
@@ -281,6 +288,7 @@ impl Parser {
 
   fn token_precedence(token: &Token) -> Precedence {
     match token.ty {
+      TokenType::Assign => Precedence::ASSIGN,
       TokenType::Plus | TokenType::Minus => Precedence::SUM,
       TokenType::Aster | TokenType::Slash => Precedence::PRODUCT,
       _ => Precedence::LOWEST,

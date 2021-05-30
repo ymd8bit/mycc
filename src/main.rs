@@ -32,7 +32,6 @@ fn main() -> std::io::Result<()> {
     let contents = std::fs::read_to_string(source_file_path).expect("[error] read_to_string");
     let mut lexer = Lexer::new(contents.chars().collect());
     let token_list = lexer.tokenize();
-    println!("{}", token_list);
     let mut parser = Parser::new(token_list);
     let module = parser.parse();
     println!("{}", module);
@@ -48,7 +47,7 @@ fn main() -> std::io::Result<()> {
         .arg("-o")
         .arg(&tmp_elf_path)
         .arg(&tmp_asm_path)
-        .output()
+        .status()
         .expect("[Error] failed in the compilation...");
     let status = Command::new(&tmp_elf_path)
         .status()
