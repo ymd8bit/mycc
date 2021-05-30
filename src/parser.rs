@@ -32,6 +32,38 @@ impl Parser {
     }
   }
 
+  fn current_or_panic(&self) -> &Token {
+    if self.index < self.token_list.len() {
+      &self.token_list[self.index]
+    } else {
+      panic!("Unexpectedly reached to <EOF>...");
+    }
+  }
+
+  fn current_is(&self, expect_type: TokenType) -> bool {
+    if self.current().is_none() {
+      return false;
+    }
+    let cur = self.current().unwrap();
+    cur.ty == expect_type
+  }
+
+  fn peek(&self) -> Option<&Token> {
+    if self.index < self.token_list.len() {
+      Some(&self.token_list[self.index + 1])
+    } else {
+      None
+    }
+  }
+
+  fn peek_is(&self, expect_type: TokenType) -> bool {
+    if self.peek().is_none() {
+      return false;
+    }
+    let peek = self.peek().unwrap();
+    peek.ty == expect_type
+  }
+
   fn on_eof(&self) -> bool {
     self.index >= self.token_list.len()
   }
@@ -44,20 +76,32 @@ impl Parser {
     if self.on_eof() {
       return None;
     }
-    if self.index < self.token_list.len() {
-      let cur = &self.token_list[self.index];
-      if cur.ty == expect_type {
-        self.index += 1;
-        return Some(cur);
-      }
+    let current_token = &self.token_list[self.index];
+    if current_token.ty == expect_type {
+      self.index += 1;
+      Some(current_token)
+    } else {
+      None
     }
-    None
+  }
+
+  fn consume_or_panic(&mut self, expect_type: TokenType) -> &Token {
+    if self.on_eof() {
+      panic!("Unexpectly reached to <EOF>...");
+    }
+    let current_token = &self.token_list[self.index];
+    if current_token.ty == expect_type {
+      self.index += 1;
+      current_token
+    } else {
+      panic!("Expect {} but {} found...", expect_type, current_token.ty);
+    }
   }
 
   pub fn parse(&mut self) -> Box<Module> {
     let mut module = Box::new(Module::new());
     while !self.on_eof() {
-      match self.parse_stmt() {
+      match self.parse_decl() {
         Some(stmt) => {
           module.add_stmt(stmt);
         }
@@ -67,31 +111,85 @@ impl Parser {
     module
   }
 
-  // pub fn parse_fn(&mut self) -> Option<Box<Stmt>> {
-  //   let cur = self.current()?;
-  //   match cur.ty {
-  //     TokenType::Id(name) => {
-  //       self.consume(TokenType::LParen);
-  // while !self.on_eof() {
-  //   match self.parse_stmt() {
-  //     Some(stmt) => {
-  //       module.add_stmt(stmt);
-  //     }
-  //     None => break,
-  //   }
-  //       }
-  //     }
-  //   }
-  // }
+  pub fn parse_decl(&mut self) -> Option<Box<Stmt>> {
+    let token = self.current()?;
+    match token.ty {
+      TokenType::Id(_) => {
+        if self.peek_is(TokenType::LParen) {
+          return Some(self.parse_fn());
+        } else {
+          panic!("var decl is not supported now...");
+        }
+      }
+      _ => panic!("Expected decl but {} found...", token.ty),
+    }
+  }
+
+  pub fn parse_fn(&mut self) -> Box<Stmt> {
+    let (name, args) = self.parse_prototype();
+    let block = self.parse_stmt_block();
+    Box::new(Stmt::FnStmt {
+      name: name,
+      args: args,
+      body: block,
+    })
+  }
+
+  pub fn parse_prototype(&mut self) -> (String, ArgList) {
+    let token = self.current_or_panic();
+    let fn_name = token.get_id_string();
+    self.next();
+    let args = self.parse_fn_args(); // consume '(' first_arg (, arg)* ')'
+    (fn_name, args)
+  }
+
+  pub fn parse_fn_args(&mut self) -> ArgList {
+    self
+      .consume(TokenType::LParen)
+      .expect("Expect ( but not found...");
+
+    if self.current_is(TokenType::RParen) {
+      return ArgList { args: Vec::new() };
+    }
+
+    let mut args = Vec::new();
+    let first_arg = self.parse_arg();
+
+    // Patern: "{fn_name}(first_arg (, arg)*)"
+    while self.consume(TokenType::RParen).is_none() {
+      self.consume_or_panic(TokenType::Comma);
+      let arg = self.parse_arg();
+      args.push(arg);
+    }
+
+    ArgList { args: args }
+  }
+
+  pub fn parse_arg(&mut self) -> Arg {
+    let arg = self.current_or_panic();
+    let arg_name = arg.get_id_string();
+    self.next();
+    Arg { name: arg_name }
+  }
+
+  pub fn parse_stmt_block(&mut self) -> Vec<Box<Stmt>> {
+    self.consume_or_panic(TokenType::LBrace);
+    let mut stmt_block = Vec::new();
+    while self.consume(TokenType::RBrace).is_none() {
+      println!("{}", self.current_or_panic());
+      match self.parse_stmt() {
+        Some(stmt) => {
+          stmt_block.push(stmt);
+        }
+        None => break,
+      }
+    }
+    stmt_block
+  }
 
   pub fn parse_stmt(&mut self) -> Option<Box<Stmt>> {
     let expr = self.parse_expr(Precedence::LOWEST)?;
-    if self.consume(TokenType::Semicolon).is_none() {
-      match self.current() {
-        Some(token) => panic!("Expected ';' but {} found...", token),
-        None => panic!("Expected ';' but <EOF> found..."),
-      };
-    }
+    self.consume_or_panic(TokenType::Semicolon);
     Some(Box::new(Stmt::ExprStmt { expr: expr }))
   }
 

@@ -96,21 +96,67 @@ impl fmt::Display for Expr {
 
 #[derive(Debug)]
 pub struct Arg {
-  name: String,
+  pub name: String,
+}
+impl ToSimpleString for Arg {
+  fn to_simple_string(&self) -> String {
+    format!("'{}'", self.name)
+  }
+}
+impl fmt::Display for Arg {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}", self.to_simple_string())
+  }
+}
+#[derive(Debug)]
+pub struct ArgList {
+  pub args: Vec<Arg>,
+}
+
+impl ToSimpleString for ArgList {
+  fn to_simple_string(&self) -> String {
+    let mut args_str = String::from("[");
+    for (i, arg) in self.args.iter().enumerate() {
+      if i != 0 {
+        args_str.push_str(", ");
+      }
+      args_str.push_str(&arg.to_simple_string());
+    }
+    args_str.push_str("]");
+    args_str
+  }
+}
+impl fmt::Display for ArgList {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}", self.to_simple_string())
+  }
 }
 
 #[derive(Debug)]
 pub enum Stmt {
-  ExprStmt { expr: Box<Expr> },
-  FnStmt { name: String, args: Vec<Arg> },
+  ExprStmt {
+    expr: Box<Expr>,
+  },
+  FnStmt {
+    name: String,
+    args: ArgList,
+    body: Vec<Box<Stmt>>,
+  },
 }
 
 impl ToSimpleString for Stmt {
   fn to_simple_string(&self) -> String {
     match self {
       Stmt::ExprStmt { expr } => format!("Stmt({})", expr),
-      Stmt::FnStmt { name, args } => {
-        format!("Fn({}, {:?})", name, args)
+      Stmt::FnStmt { name, args, body } => {
+        let mut fn_str = format!("Fn({}, {}) {{", name, args);
+        for (i, stmt) in body.iter().enumerate() {
+          fn_str.push_str("\n");
+          fn_str.push_str(&format!("  {}: ", i));
+          fn_str.push_str(&stmt.to_simple_string());
+        }
+        fn_str.push_str("}");
+        fn_str
       }
     }
   }

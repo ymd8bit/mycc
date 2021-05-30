@@ -134,6 +134,13 @@ impl Token {
       position: Position::new(start, start),
     }
   }
+
+  pub fn get_id_string(&self) -> String {
+    match &self.ty {
+      TokenType::Id(name) => name.clone(),
+      _ => panic!("Expect ID token but {} found...", self),
+    }
+  }
 }
 
 pub struct TokenList {

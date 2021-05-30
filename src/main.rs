@@ -36,13 +36,14 @@ fn main() -> std::io::Result<()> {
     let mut parser = Parser::new(token_list);
     let module = parser.parse();
     println!("{}", module);
-    let mut gen = Codegen::new();
 
     let tmp_dir = Path::new("tmp/").canonicalize().unwrap();
     let tmp_asm_path = tmp_dir.join("tmp.s");
     let tmp_elf_path = tmp_dir.join("tmp.elf");
 
+    let mut gen = Codegen::new();
     gen.export(&tmp_asm_path, module);
+
     let _ = Command::new("gcc")
         .arg("-o")
         .arg(&tmp_elf_path)
