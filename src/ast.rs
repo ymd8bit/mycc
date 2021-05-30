@@ -95,14 +95,23 @@ impl fmt::Display for Expr {
 }
 
 #[derive(Debug)]
+pub struct Arg {
+  name: String,
+}
+
+#[derive(Debug)]
 pub enum Stmt {
   ExprStmt { expr: Box<Expr> },
+  FnStmt { name: String, args: Vec<Arg> },
 }
 
 impl ToSimpleString for Stmt {
   fn to_simple_string(&self) -> String {
     match self {
       Stmt::ExprStmt { expr } => format!("Stmt({})", expr),
+      Stmt::FnStmt { name, args } => {
+        format!("Fn({}, {:?})", name, args)
+      }
     }
   }
 }

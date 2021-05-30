@@ -205,6 +205,13 @@ impl Lexer {
             position: Position::new(pos, pos + 1),
           })
         }
+        ',' => {
+          self.next();
+          Some(Token {
+            ty: TokenType::Comma,
+            position: Position::new(pos, pos + 1),
+          })
+        }
         _ => panic!("Unknown char '{}' found...", *cur),
       }
     }

@@ -84,6 +84,7 @@ impl Codegen {
     for stmt in stmt_list {
       match *stmt {
         Stmt::ExprStmt { expr } => self.gen_expr(expr),
+        _ => panic!("FnStmt is not supported now..."),
       }
     }
   }

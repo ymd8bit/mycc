@@ -40,17 +40,18 @@ impl Parser {
     self.index += 1;
   }
 
-  fn consume(&mut self, expect_type: TokenType) -> bool {
+  fn consume(&mut self, expect_type: TokenType) -> Option<&Token> {
     if self.on_eof() {
-      return false;
+      return None;
     }
-    let next_token = self.current().unwrap();
-    if next_token.ty == expect_type {
-      self.next();
-      true
-    } else {
-      false
+    if self.index < self.token_list.len() {
+      let cur = &self.token_list[self.index];
+      if cur.ty == expect_type {
+        self.index += 1;
+        return Some(cur);
+      }
     }
+    None
   }
 
   pub fn parse(&mut self) -> Box<Module> {
@@ -66,9 +67,26 @@ impl Parser {
     module
   }
 
+  // pub fn parse_fn(&mut self) -> Option<Box<Stmt>> {
+  //   let cur = self.current()?;
+  //   match cur.ty {
+  //     TokenType::Id(name) => {
+  //       self.consume(TokenType::LParen);
+  // while !self.on_eof() {
+  //   match self.parse_stmt() {
+  //     Some(stmt) => {
+  //       module.add_stmt(stmt);
+  //     }
+  //     None => break,
+  //   }
+  //       }
+  //     }
+  //   }
+  // }
+
   pub fn parse_stmt(&mut self) -> Option<Box<Stmt>> {
     let expr = self.parse_expr(Precedence::LOWEST)?;
-    if !self.consume(TokenType::Semicolon) {
+    if self.consume(TokenType::Semicolon).is_none() {
       match self.current() {
         Some(token) => panic!("Expected ';' but {} found...", token),
         None => panic!("Expected ';' but <EOF> found..."),
@@ -136,14 +154,13 @@ impl Parser {
   }
 
   fn parse_grouped_expr(&mut self) -> Option<Box<Expr>> {
-    if !self.consume(TokenType::LParen) {
-      panic!("'(' expected but {} found...", self.current()?);
+    if self.consume(TokenType::LParen).is_none() {
+      panic!("Expected '(' but {} found...", self.current()?);
     }
     let expr = self.parse_expr(Precedence::LOWEST);
-    if self.consume(TokenType::RParen) {
-      expr
-    } else {
-      panic!("')' expected but {} found...", self.current()?);
+    match self.consume(TokenType::RParen) {
+      Some(_) => expr,
+      None => panic!("Expected ')' but {} found...", self.current()?),
     }
   }
 
