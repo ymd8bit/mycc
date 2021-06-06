@@ -161,6 +161,9 @@ pub enum Stmt {
   ExprStmt {
     expr: Box<Expr>,
   },
+  ReturnStmt {
+    expr: Option<Box<Expr>>,
+  },
   FnStmt {
     name: String,
     args: ArgList,
@@ -172,6 +175,10 @@ impl ToSimpleString for Stmt {
   fn to_simple_string(&self) -> String {
     match self {
       Stmt::ExprStmt { expr } => format!("Stmt({})", expr),
+      Stmt::ReturnStmt { expr } => match expr {
+        Some(expr) => format!("Return({})", expr),
+        None => format!("Return()"),
+      },
       Stmt::FnStmt { name, args, body } => {
         let mut fn_str = format!("Fn({}, {}) {{", name, args);
         for (i, stmt) in body.iter().enumerate() {

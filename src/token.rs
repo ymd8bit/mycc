@@ -7,6 +7,7 @@ use std::ops::{Index, IndexMut};
 pub enum TokenType {
   Id(String),  // ([a-z|A-Z|_])([a-z|A-Z|_|0-9])*
   Number(u64), // [0-9][0-9]*
+  Return,      // 'return'
   Plus,        // '+'
   Minus,       // '-'
   Aster,       // '*'
@@ -33,6 +34,7 @@ impl ToSimpleString for TokenType {
     match self {
       TokenType::Id(x) => format!("Id({})", x),
       TokenType::Number(x) => format!("Num({})", x),
+      TokenType::Return => format!("Return"),
       TokenType::Plus => String::from("'+'"),
       TokenType::Minus => String::from("'-'"),
       TokenType::Aster => String::from("'*'"),

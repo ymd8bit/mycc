@@ -184,9 +184,23 @@ impl Parser {
   }
 
   pub fn parse_stmt(&mut self) -> Option<Box<Stmt>> {
-    let expr = self.parse_expr(Precedence::LOWEST)?;
+    let stmt = if self.consume(TokenType::Return).is_some() {
+      // parse 'return' stmt with the lhs
+      if self.consume(TokenType::Semicolon).is_none() {
+        println!("{}", self.current().unwrap());
+        let expr = self
+          .parse_expr(Precedence::LOWEST)
+          .expect("'return' is followed by an unexpected expr...");
+        Stmt::ReturnStmt { expr: Some(expr) }
+      } else {
+        Stmt::ReturnStmt { expr: None }
+      }
+    } else {
+      let expr = self.parse_expr(Precedence::LOWEST)?;
+      Stmt::ExprStmt { expr: expr }
+    };
     self.consume_or_panic(TokenType::Semicolon);
-    Some(Box::new(Stmt::ExprStmt { expr: expr }))
+    Some(Box::new(stmt))
   }
 
   fn parse_expr(&mut self, precedence: Precedence) -> Option<Box<Expr>> {

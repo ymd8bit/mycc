@@ -256,7 +256,16 @@ impl Lexer {
     }
 
     self.next();
-    Token::id(String::from_iter(id), pos, self.position)
+    let pos_end = self.position;
+
+    let id_str = String::from_iter(id);
+    match &id_str[..] {
+      "return" => Token {
+        ty: TokenType::Return,
+        position: Position::new(pos, pos_end),
+      },
+      _ => Token::id(id_str, pos, pos_end),
+    }
   }
 }
 

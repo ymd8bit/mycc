@@ -89,13 +89,6 @@ impl Codegen {
   }
 
   fn gen_module_prolouge(&mut self) {
-    // self.set(".section __DATA,__data");
-    // self.set("print_msg:");
-    // self.inc_indent();
-    // self.set(".asciz \"%d\\n\"");
-    // self.dec_indent();
-    // self.set_newline();
-    // TEXT section
     self.set(".intel_syntax noprefix");
     self.set(".globl main");
     self.set_newline();
@@ -132,6 +125,9 @@ impl Codegen {
     for stmt in body {
       match *stmt {
         Stmt::ExprStmt { expr } => self.gen_expr(expr, env),
+        Stmt::ReturnStmt { expr } => {
+          self.gen_return(expr, env);
+        }
         _ => panic!("FnStmt is not supported in a function..."),
       }
     }
@@ -150,6 +146,16 @@ impl Codegen {
       }
       _ => panic!("Only Id can be refered as lvalue..."),
     }
+  }
+
+  fn gen_return(&mut self, lhs: Option<Box<Expr>>, env: &mut Env) {
+    if let Some(lhs) = lhs {
+      self.gen_expr(lhs, env);
+    }
+    self.set("pop rax");
+    self.set("mov rsp, rbp");
+    self.set("pop rbp");
+    self.set("ret");
   }
 
   fn gen_expr(&mut self, expr: Box<Expr>, env: &mut Env) {
