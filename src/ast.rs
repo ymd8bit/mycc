@@ -1,5 +1,5 @@
 use crate::token::Position;
-use crate::utils::ToSimpleString;
+use crate::utils::{Printer, ToSimpleString};
 use std::fmt;
 
 #[derive(Debug)]
@@ -161,6 +161,11 @@ pub enum Stmt {
   ExprStmt {
     expr: Box<Expr>,
   },
+  IfStmt {
+    cond: Box<Expr>,
+    true_body: Vec<Box<Stmt>>,
+    false_body: Option<Vec<Box<Stmt>>>,
+  },
   ReturnStmt {
     expr: Option<Box<Expr>>,
   },
@@ -175,6 +180,24 @@ impl ToSimpleString for Stmt {
   fn to_simple_string(&self) -> String {
     match self {
       Stmt::ExprStmt { expr } => format!("Stmt({})", expr),
+      Stmt::IfStmt {
+        cond,
+        true_body,
+        false_body,
+      } => {
+        let mut s = format!("If({}) {{\n", cond);
+        s += &stmt_list_to_string(true_body);
+        s.push_str("}");
+        match false_body {
+          Some(body) => {
+            s.push_str(" Else {\n");
+            s += &stmt_list_to_string(body);
+            s.push_str("}");
+            s
+          }
+          None => s,
+        }
+      }
       Stmt::ReturnStmt { expr } => match expr {
         Some(expr) => format!("Return({})", expr),
         None => format!("Return()"),
@@ -218,11 +241,7 @@ impl Module {
 impl ToSimpleString for Module {
   fn to_simple_string(&self) -> String {
     let mut s = String::from("Module {\n");
-    for (i, stmt) in self.stmt_list.iter().enumerate() {
-      s.push_str(&format!("  {}: ", i));
-      s.push_str(&stmt.to_simple_string());
-      s.push('\n');
-    }
+    s += &stmt_list_to_string(&self.stmt_list);
     s.push_str("}");
     s
   }
@@ -231,4 +250,14 @@ impl fmt::Display for Module {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{}", self.to_simple_string())
   }
+}
+
+fn stmt_list_to_string(stmt_list: &Vec<Box<Stmt>>) -> String {
+  let mut s = String::new();
+  for (i, stmt) in stmt_list.iter().enumerate() {
+    s.push_str(&format!("  {}: ", i));
+    s.push_str(&stmt.to_simple_string());
+    s.push('\n');
+  }
+  return s;
 }

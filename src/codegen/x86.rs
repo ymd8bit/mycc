@@ -43,6 +43,7 @@ impl Env {
 pub struct Codegen {
   pub code_list: Vec<String>,
   indent: usize,
+  label_index: usize,
 }
 
 impl Codegen {
@@ -50,6 +51,7 @@ impl Codegen {
     Codegen {
       code_list: Vec::new(),
       indent: 0,
+      label_index: 0,
     }
   }
 
@@ -100,7 +102,7 @@ impl Codegen {
       env.alloc(&arg.name);
     }
     self.gen_fn_prolouge(&name, &env);
-    self.gen_fn_body(&name, args, body, &mut env);
+    self.gen_block(body, &mut env);
     self.gen_fn_epilouge(&name);
   }
 
@@ -121,14 +123,19 @@ impl Codegen {
     self.dec_indent();
   }
 
-  fn gen_fn_body(&mut self, _name: &str, _args: ArgList, body: Vec<Box<Stmt>>, env: &mut Env) {
+  fn gen_block(&mut self, body: Vec<Box<Stmt>>, env: &mut Env) {
     for stmt in body {
       match *stmt {
         Stmt::ExprStmt { expr } => self.gen_expr(expr, env),
+        Stmt::IfStmt {
+          cond,
+          true_body,
+          false_body,
+        } => self.gen_if(cond, true_body, false_body, env),
         Stmt::ReturnStmt { expr } => {
           self.gen_return(expr, env);
         }
-        _ => panic!("FnStmt is not supported in a function..."),
+        Stmt::FnStmt { .. } => panic!("FnStmt is not supported in a function..."),
       }
     }
   }
@@ -146,6 +153,30 @@ impl Codegen {
       }
       _ => panic!("Only Id can be refered as lvalue..."),
     }
+  }
+
+  fn gen_if(
+    &mut self,
+    cond: Box<Expr>,
+    true_body: Vec<Box<Stmt>>,
+    false_body: Option<Vec<Box<Stmt>>>,
+    env: &mut Env,
+  ) {
+    self.gen_expr(cond, env);
+    self.set("pop rax");
+    self.set("cmp rax, 0");
+    if let Some(false_body) = false_body {
+      self.set(&format!("je .Lelse_{}", self.label_index));
+      self.gen_block(true_body, env);
+      self.set(&format!("jmp .Lend_{}", self.label_index));
+      self.set(&format!(".Lelse_{}:", self.label_index));
+      self.gen_block(false_body, env);
+    } else {
+      self.set(&format!("je .Lend_{}", self.label_index));
+      self.gen_block(true_body, env);
+    }
+    self.set(&format!(".Lend_{}:", self.label_index));
+    self.label_index += 1;
   }
 
   fn gen_return(&mut self, lhs: Option<Box<Expr>>, env: &mut Env) {

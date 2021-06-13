@@ -105,6 +105,7 @@ impl Parser {
 
   pub fn parse_decl(&mut self) -> Option<Box<Stmt>> {
     let token = self.current()?;
+    println!("{}", token);
     match token.ty {
       TokenType::Id(_) => {
         if self.peek_is(TokenType::LParen) {
@@ -184,22 +185,57 @@ impl Parser {
   }
 
   pub fn parse_stmt(&mut self) -> Option<Box<Stmt>> {
-    let stmt = if self.consume(TokenType::Return).is_some() {
-      // parse 'return' stmt with the lhs
-      if self.consume(TokenType::Semicolon).is_none() {
-        println!("{}", self.current().unwrap());
+    let token = self.current()?;
+    let stmt = match token.ty {
+      TokenType::If => {
+        self.next();
+        self.consume_or_panic(TokenType::LParen);
         let expr = self
           .parse_expr(Precedence::LOWEST)
-          .expect("'return' is followed by an unexpected expr...");
-        Stmt::ReturnStmt { expr: Some(expr) }
-      } else {
-        Stmt::ReturnStmt { expr: None }
+          .expect("'if' must have the condition...");
+        self.consume_or_panic(TokenType::RParen);
+        let true_stmt_block = self.parse_stmt_block();
+        if true_stmt_block.len() == 0 {
+          panic!("'if' must have at least 1 statement...")
+        }
+
+        let false_stmt_block = match self.consume(TokenType::Else) {
+          Some(_) => {
+            let false_stmt_block = self.parse_stmt_block();
+            if false_stmt_block.len() == 0 {
+              panic!("'else' must have at least 1 statement...")
+            }
+            Some(false_stmt_block)
+          }
+          None => None,
+        };
+        Stmt::IfStmt {
+          cond: expr,
+          true_body: true_stmt_block,
+          false_body: false_stmt_block,
+        }
       }
-    } else {
-      let expr = self.parse_expr(Precedence::LOWEST)?;
-      Stmt::ExprStmt { expr: expr }
+      TokenType::Return => {
+        self.next();
+        // parse 'return' stmt with the lhs
+        if self.consume(TokenType::Semicolon).is_none() {
+          println!("{}", self.current().unwrap());
+          let expr = self
+            .parse_expr(Precedence::LOWEST)
+            .expect("'return' is followed by an unexpected expr...");
+          self.consume_or_panic(TokenType::Semicolon);
+          Stmt::ReturnStmt { expr: Some(expr) }
+        } else {
+          // ';' is already consumed in the condition
+          Stmt::ReturnStmt { expr: None }
+        }
+      }
+      _ => {
+        let expr = self.parse_expr(Precedence::LOWEST)?;
+        self.consume_or_panic(TokenType::Semicolon);
+        Stmt::ExprStmt { expr: expr }
+      }
     };
-    self.consume_or_panic(TokenType::Semicolon);
     Some(Box::new(stmt))
   }
 

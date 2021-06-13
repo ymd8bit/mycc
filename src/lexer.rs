@@ -9,7 +9,7 @@ fn is_number(c: char) -> bool {
   c.is_ascii_digit()
 }
 
-fn is_id(c: char) -> bool {
+fn is_alpha(c: char) -> bool {
   c.is_alphabetic()
 }
 
@@ -82,7 +82,7 @@ impl Lexer {
 
     if is_number(*cur) {
       Some(self.make_number())
-    } else if is_id(*cur) {
+    } else if is_alpha(*cur) {
       Some(self.make_id())
     } else {
       match *cur {
@@ -259,12 +259,35 @@ impl Lexer {
     let pos_end = self.position;
 
     let id_str = String::from_iter(id);
-    match &id_str[..] {
-      "return" => Token {
+    match self.make_reserved_word(&id_str[..], pos, pos_end) {
+      Some(token) => token,
+      None => Token::id(id_str, pos, pos_end),
+    }
+  }
+
+  fn make_reserved_word(&mut self, id_str: &str, pos: usize, pos_end: usize) -> Option<Token> {
+    match id_str {
+      "if" => Some(Token {
+        ty: TokenType::If,
+        position: Position::new(pos, pos_end),
+      }),
+      "else" => Some(Token {
+        ty: TokenType::Else,
+        position: Position::new(pos, pos_end),
+      }),
+      "for" => Some(Token {
+        ty: TokenType::For,
+        position: Position::new(pos, pos_end),
+      }),
+      "while" => Some(Token {
+        ty: TokenType::While,
+        position: Position::new(pos, pos_end),
+      }),
+      "return" => Some(Token {
         ty: TokenType::Return,
         position: Position::new(pos, pos_end),
-      },
-      _ => Token::id(id_str, pos, pos_end),
+      }),
+      _ => None,
     }
   }
 }
