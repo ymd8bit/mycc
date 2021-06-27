@@ -37,7 +37,7 @@ fn main() -> std::io::Result<()> {
     // println!("{}", token_list);
     let mut parser = Parser::new(token_list);
     let module = parser.parse();
-    println!("{}", module);
+    // println!("{}", module);
 
     let tmp_dir = Path::new("tmp/").canonicalize().unwrap();
     // if let Err(err) = std::fs::create_dir(tmp_dir) {
@@ -51,7 +51,7 @@ fn main() -> std::io::Result<()> {
 
     let mut gen = Codegen::new();
     gen.export(&tmp_asm_path, module);
-    print_file(&tmp_asm_path);
+    // print_file(&tmp_asm_path);
 
     let _ = Command::new("gcc")
         .arg("-g")

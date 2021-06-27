@@ -85,7 +85,6 @@ impl Codegen {
     for stmt in module.stmt_list {
       match *stmt {
         Stmt::FnStmt { name, args, body } => {
-          println!("fn_name: {}", name);
           self.gen_fn(&name, args, body);
           self.set_newline();
         }
@@ -286,9 +285,7 @@ impl Codegen {
         if self.rsp_count % 2 == 0 {
           self.set("sub rsp, 8");
         }
-        println!("rsp_count: {}", self.rsp_count);
         self.set(&format!("call {}", name));
-        println!("rsp_count: {}", self.rsp_count);
         // pop dummy for aligning RSP by 16 bytes
         if self.rsp_count % 2 == 0 {
           self.set("add rsp, 8");
