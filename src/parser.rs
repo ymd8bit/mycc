@@ -6,9 +6,10 @@ use crate::token::{Position, Token, TokenList, TokenType};
 enum Precedence {
   LOWEST = 0x0,
   ASSIGN = 0x1,
-  SUM = 0x2,
-  PRODUCT = 0x3,
-  PREFIX = 0x4,
+  COMPARE = 0x2,
+  SUM = 0x3,
+  PRODUCT = 0x4,
+  PREFIX = 0x5,
 }
 
 pub struct Parser {
@@ -187,49 +188,9 @@ impl Parser {
   pub fn parse_stmt(&mut self) -> Option<Box<Stmt>> {
     let token = self.current()?;
     let stmt = match token.ty {
-      TokenType::If => {
-        self.next();
-        self.consume_or_panic(TokenType::LParen);
-        let expr = self
-          .parse_expr(Precedence::LOWEST)
-          .expect("'if' must have the condition...");
-        self.consume_or_panic(TokenType::RParen);
-        let true_stmt_block = self.parse_stmt_block();
-        if true_stmt_block.len() == 0 {
-          panic!("'if' must have at least 1 statement...")
-        }
-
-        let false_stmt_block = match self.consume(TokenType::Else) {
-          Some(_) => {
-            let false_stmt_block = self.parse_stmt_block();
-            if false_stmt_block.len() == 0 {
-              panic!("'else' must have at least 1 statement...")
-            }
-            Some(false_stmt_block)
-          }
-          None => None,
-        };
-        Stmt::IfStmt {
-          cond: expr,
-          true_body: true_stmt_block,
-          false_body: false_stmt_block,
-        }
-      }
-      TokenType::Return => {
-        self.next();
-        // parse 'return' stmt with the lhs
-        if self.consume(TokenType::Semicolon).is_none() {
-          println!("{}", self.current().unwrap());
-          let expr = self
-            .parse_expr(Precedence::LOWEST)
-            .expect("'return' is followed by an unexpected expr...");
-          self.consume_or_panic(TokenType::Semicolon);
-          Stmt::ReturnStmt { expr: Some(expr) }
-        } else {
-          // ';' is already consumed in the condition
-          Stmt::ReturnStmt { expr: None }
-        }
-      }
+      TokenType::If => self.parse_if_stmt(),
+      TokenType::For => self.parse_for_stmt(),
+      TokenType::Return => self.parse_return_stmt(),
       _ => {
         let expr = self.parse_expr(Precedence::LOWEST)?;
         self.consume_or_panic(TokenType::Semicolon);
@@ -237,6 +198,81 @@ impl Parser {
       }
     };
     Some(Box::new(stmt))
+  }
+
+  fn parse_if_stmt(&mut self) -> Stmt {
+    self.next();
+    self.consume_or_panic(TokenType::LParen);
+    let expr = self
+      .parse_expr(Precedence::LOWEST)
+      .expect("'if' must have the condition...");
+    self.consume_or_panic(TokenType::RParen);
+    let true_stmt_block = self.parse_stmt_block();
+    if true_stmt_block.len() == 0 {
+      panic!("'if' must have at least 1 statement...")
+    }
+
+    let false_stmt_block = match self.consume(TokenType::Else) {
+      Some(_) => {
+        let false_stmt_block = self.parse_stmt_block();
+        if false_stmt_block.len() == 0 {
+          panic!("'else' must have at least 1 statement...")
+        }
+        Some(false_stmt_block)
+      }
+      None => None,
+    };
+    Stmt::IfStmt {
+      cond: expr,
+      true_body: true_stmt_block,
+      false_body: false_stmt_block,
+    }
+  }
+
+  fn parse_for_stmt(&mut self) -> Stmt {
+    self.next();
+    panic!("not support 'for yet...");
+    self.consume_or_panic(TokenType::LParen);
+    let prologue = self.parse_expr(Precedence::LOWEST);
+    let condition = self.parse_expr(Precedence::LOWEST);
+    let epilogue = self.parse_expr(Precedence::LOWEST);
+    self.consume_or_panic(TokenType::RParen);
+    // let true_stmt_block = self.parse_stmt_block();
+    // if true_stmt_block.len() == 0 {
+    //   panic!("'if' must have at least 1 statement...")
+    // }
+
+    // let false_stmt_block = match self.consume(TokenType::Else) {
+    //   Some(_) => {
+    //     let false_stmt_block = self.parse_stmt_block();
+    //     if false_stmt_block.len() == 0 {
+    //       panic!("'else' must have at least 1 statement...")
+    //     }
+    //     Some(false_stmt_block)
+    //   }
+    //   None => None,
+    // };
+    // Stmt::IfStmt {
+    //   cond: expr,
+    //   true_body: true_stmt_block,
+    //   false_body: false_stmt_block,
+    // }
+  }
+
+  fn parse_return_stmt(&mut self) -> Stmt {
+    self.next();
+    // parse 'return' stmt with the lhs
+    if self.consume(TokenType::Semicolon).is_none() {
+      println!("{}", self.current().unwrap());
+      let expr = self
+        .parse_expr(Precedence::LOWEST)
+        .expect("'return' is followed by an unexpected expr...");
+      self.consume_or_panic(TokenType::Semicolon);
+      Stmt::ReturnStmt { expr: Some(expr) }
+    } else {
+      // ';' is already consumed in the condition
+      Stmt::ReturnStmt { expr: None }
+    }
   }
 
   fn parse_expr(&mut self, precedence: Precedence) -> Option<Box<Expr>> {
@@ -293,13 +329,23 @@ impl Parser {
       TokenType::Aster => BinaryOpType::Mul,
       TokenType::Slash => BinaryOpType::Div,
       TokenType::Assign => BinaryOpType::Assign,
+      TokenType::Eq => BinaryOpType::Eq,
+      TokenType::Ne => BinaryOpType::Ne,
+      TokenType::Lt => BinaryOpType::Lt,
+      TokenType::Le => BinaryOpType::Le,
+      TokenType::Gt => BinaryOpType::Gt,
+      TokenType::Ge => BinaryOpType::Ge,
       _ => return Some(lhs),
     };
     let pos = token.position;
     let precedence = Self::token_precedence(token);
     self.next();
 
+    println!("{}", self.current().unwrap());
+
     let rhs = self.parse_expr(precedence)?;
+    println!("lhs: {}", rhs);
+    println!("{}", self.current().unwrap());
     Some(Box::new(Expr::BinaryOp {
       op: op,
       lhs: lhs,
@@ -339,6 +385,12 @@ impl Parser {
   fn token_precedence(token: &Token) -> Precedence {
     match token.ty {
       TokenType::Assign => Precedence::ASSIGN,
+      TokenType::Eq
+      | TokenType::Ne
+      | TokenType::Lt
+      | TokenType::Le
+      | TokenType::Gt
+      | TokenType::Ge => Precedence::COMPARE,
       TokenType::Plus | TokenType::Minus => Precedence::SUM,
       TokenType::Aster | TokenType::Slash => Precedence::PRODUCT,
       _ => Precedence::LOWEST,

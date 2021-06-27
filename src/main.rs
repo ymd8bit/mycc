@@ -32,11 +32,18 @@ fn main() -> std::io::Result<()> {
     let contents = std::fs::read_to_string(source_file_path).expect("[error] read_to_string");
     let mut lexer = Lexer::new(contents.chars().collect());
     let token_list = lexer.tokenize();
+    // println!("{}", token_list);
     let mut parser = Parser::new(token_list);
     let module = parser.parse();
     println!("{}", module);
 
     let tmp_dir = Path::new("tmp/").canonicalize().unwrap();
+    // if let Err(err) = std::fs::create_dir(tmp_dir) {
+    //     panic!(format!(
+    //         "create directory {} failed at ",
+    //         tmp_dir.to_str().unwrap()
+    //     ))
+    // };
     let tmp_asm_path = tmp_dir.join("tmp.s");
     let tmp_elf_path = tmp_dir.join("tmp.elf");
 

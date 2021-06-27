@@ -30,11 +30,12 @@ pub enum BinaryOpType {
   Mul,
   Div,
   Assign,
-  // Lt,
-  // Ne,
-  // Gt,
-  // Le,
-  // Ge,
+  Eq,
+  Ne,
+  Lt,
+  Le,
+  Gt,
+  Ge,
 }
 
 impl ToSimpleString for BinaryOpType {
@@ -45,6 +46,12 @@ impl ToSimpleString for BinaryOpType {
       BinaryOpType::Mul => String::from("Mul"),
       BinaryOpType::Div => String::from("Div"),
       BinaryOpType::Assign => String::from("Assign"),
+      BinaryOpType::Eq => String::from("Eq"),
+      BinaryOpType::Ne => String::from("Ne"),
+      BinaryOpType::Lt => String::from("Lt"),
+      BinaryOpType::Le => String::from("Le"),
+      BinaryOpType::Gt => String::from("Gt"),
+      BinaryOpType::Ge => String::from("Ge"),
     }
   }
 }
@@ -81,7 +88,7 @@ pub enum Expr {
 impl ToSimpleString for Expr {
   fn to_simple_string(&self) -> String {
     match self {
-      Expr::Id { name, position } => format!("Id{}{{{}}}", position, name),
+      Expr::Id { name, position } => format!("Id{}{{'{}'}}", position, name),
       Expr::Number { value, position } => format!("Num{}{{{}}}", position, value),
       Expr::UnaryOp { op, rhs, position } => format!("{}{}{{{}}}", op, position, rhs),
       Expr::BinaryOp {

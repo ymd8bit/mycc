@@ -245,7 +245,31 @@ impl Codegen {
                 self.set("cqo");
                 self.set("idiv rdi");
               }
-              _ => (),
+              _ => {
+                self.set("cmp rax, rdi");
+                match op {
+                  BinaryOpType::Eq => {
+                    self.set("sete al");
+                  }
+                  BinaryOpType::Ne => {
+                    self.set("setne al");
+                  }
+                  BinaryOpType::Lt => {
+                    self.set("setl al");
+                  }
+                  BinaryOpType::Le => {
+                    self.set("setle al");
+                  }
+                  BinaryOpType::Gt => {
+                    self.set("setg al");
+                  }
+                  BinaryOpType::Ge => {
+                    self.set("setge al");
+                  }
+                  _ => panic!("Unreachable"),
+                };
+                self.set("movzb rax, al");
+              }
             };
           }
         };
