@@ -92,6 +92,15 @@ impl Codegen {
 
   fn gen_module_prolouge(&mut self) {
     self.set(".intel_syntax noprefix");
+    self.set_newline();
+    self.set(".text");
+    self.set(".section .rodata");
+    self.set(".LC0:");
+    self.inc_indent();
+    self.set(".string \"%d\\n\"");
+    self.set(".text");
+    self.dec_indent();
+    self.set_newline();
     self.set(".globl main");
     self.set_newline();
   }
@@ -132,6 +141,12 @@ impl Codegen {
           true_body,
           false_body,
         } => self.gen_if(cond, true_body, false_body, env),
+        Stmt::ForStmt {
+          cond,
+          prologue,
+          epilogue,
+          body,
+        } => self.gen_for(cond, prologue, epilogue, body, env),
         Stmt::ReturnStmt { expr } => {
           self.gen_return(expr, env);
         }
@@ -140,12 +155,18 @@ impl Codegen {
     }
   }
 
-  fn gen_lvalue(&mut self, expr: Box<Expr>, env: &mut Env) {
+  fn gen_lvalue(&mut self, expr: Box<Expr>, env: &mut Env, alloc_ok: bool) {
     match *expr {
       Expr::Id { name, position: _ } => {
         let offset = match env.get_offset(&name) {
           Some(offset) => offset,
-          None => env.alloc(&name),
+          None => {
+            if alloc_ok {
+              env.alloc(&name)
+            } else {
+              panic!("Non allocated id found...")
+            }
+          }
         };
         self.set("mov rax, rbp");
         self.set(&format!("sub rax, {}", offset));
@@ -179,6 +200,34 @@ impl Codegen {
     self.label_index += 1;
   }
 
+  fn gen_for(
+    &mut self,
+    cond: Option<Box<Expr>>,
+    prologue: Option<Box<Expr>>,
+    epilogue: Option<Box<Expr>>,
+    body: Vec<Box<Stmt>>,
+    env: &mut Env,
+  ) {
+    if let Some(expr) = prologue {
+      self.gen_expr(expr, env);
+    }
+    let label_begin = self.set_label("for_begin");
+    let label_end = self.make_label("for_end");
+    if let Some(expr) = cond {
+      self.gen_expr(expr, env);
+    }
+    self.set("pop rax");
+    self.set("cmp rax, 0");
+    self.set(&format!("je {}", label_end));
+    self.gen_block(body, env);
+    if let Some(expr) = epilogue {
+      self.gen_expr(expr, env);
+    }
+    self.set(&format!("jmp {}", label_begin));
+    let _ = self.set_label("for_end");
+    self.label_index += 1;
+  }
+
   fn gen_return(&mut self, lhs: Option<Box<Expr>>, env: &mut Env) {
     if let Some(lhs) = lhs {
       self.gen_expr(lhs, env);
@@ -195,7 +244,7 @@ impl Codegen {
         name: _,
         position: _,
       } => {
-        self.gen_lvalue(expr, env);
+        self.gen_lvalue(expr, env, false);
         self.set("pop rax");
         self.set("mov rax, [rax]");
         self.set("push rax");
@@ -225,11 +274,25 @@ impl Codegen {
       } => {
         match op {
           BinaryOpType::Assign => {
-            self.gen_lvalue(lhs, env);
+            self.gen_lvalue(lhs, env, true);
             self.gen_expr(rhs, env);
             self.set("pop rdi");
             self.set("pop rax");
             self.set("mov [rax], rdi");
+            self.set("push rdi");
+          }
+          BinaryOpType::Inc | BinaryOpType::Dec => {
+            self.gen_lvalue(lhs, env, false);
+            self.gen_expr(rhs, env);
+            self.set("pop rdi");
+            self.set("pop rax");
+            self.set("mov rcx, [rax]");
+            match op {
+              BinaryOpType::Inc => self.set("add rcx, rdi"),
+              BinaryOpType::Dec => self.set("sub rcx, rdi"),
+              _ => panic!("Unreachable"),
+            };
+            self.set("mov [rax], rcx");
             self.set("push rdi");
           }
           _ => {
@@ -284,6 +347,16 @@ impl Codegen {
       indent += " ";
     }
     self.code_list.push(format!("{}{}\n", indent, cmd));
+  }
+
+  fn set_label(&mut self, name: &str) -> String {
+    let label = self.make_label(name);
+    self.code_list.push(format!("{}:\n", label));
+    label
+  }
+
+  fn make_label(&mut self, name: &str) -> String {
+    format!(".L{}_{}", name, self.label_index)
   }
 
   fn set_newline(&mut self) {

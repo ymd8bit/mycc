@@ -231,32 +231,24 @@ impl Parser {
 
   fn parse_for_stmt(&mut self) -> Stmt {
     self.next();
-    panic!("not support 'for yet...");
     self.consume_or_panic(TokenType::LParen);
     let prologue = self.parse_expr(Precedence::LOWEST);
+    self.consume_or_panic(TokenType::Semicolon);
     let condition = self.parse_expr(Precedence::LOWEST);
+    self.consume_or_panic(TokenType::Semicolon);
     let epilogue = self.parse_expr(Precedence::LOWEST);
     self.consume_or_panic(TokenType::RParen);
-    // let true_stmt_block = self.parse_stmt_block();
-    // if true_stmt_block.len() == 0 {
-    //   panic!("'if' must have at least 1 statement...")
-    // }
+    let body = self.parse_stmt_block();
+    if body.len() == 0 {
+      panic!("'for' must have at least 1 statement...")
+    }
 
-    // let false_stmt_block = match self.consume(TokenType::Else) {
-    //   Some(_) => {
-    //     let false_stmt_block = self.parse_stmt_block();
-    //     if false_stmt_block.len() == 0 {
-    //       panic!("'else' must have at least 1 statement...")
-    //     }
-    //     Some(false_stmt_block)
-    //   }
-    //   None => None,
-    // };
-    // Stmt::IfStmt {
-    //   cond: expr,
-    //   true_body: true_stmt_block,
-    //   false_body: false_stmt_block,
-    // }
+    Stmt::ForStmt {
+      cond: condition,
+      prologue: prologue,
+      epilogue: epilogue,
+      body: body,
+    }
   }
 
   fn parse_return_stmt(&mut self) -> Stmt {
@@ -329,6 +321,8 @@ impl Parser {
       TokenType::Aster => BinaryOpType::Mul,
       TokenType::Slash => BinaryOpType::Div,
       TokenType::Assign => BinaryOpType::Assign,
+      TokenType::Inc => BinaryOpType::Inc,
+      TokenType::Dec => BinaryOpType::Dec,
       TokenType::Eq => BinaryOpType::Eq,
       TokenType::Ne => BinaryOpType::Ne,
       TokenType::Lt => BinaryOpType::Lt,
@@ -384,7 +378,7 @@ impl Parser {
 
   fn token_precedence(token: &Token) -> Precedence {
     match token.ty {
-      TokenType::Assign => Precedence::ASSIGN,
+      TokenType::Assign | TokenType::Inc | TokenType::Dec => Precedence::ASSIGN,
       TokenType::Eq
       | TokenType::Ne
       | TokenType::Lt

@@ -88,17 +88,31 @@ impl Lexer {
       match *cur {
         '+' => {
           self.next();
-          Some(Token {
-            ty: TokenType::Plus,
-            position: Position::new(pos, pos + 1),
-          })
+          if self.consume(&'=') {
+            Some(Token {
+              ty: TokenType::Inc,
+              position: Position::new(pos, pos + 2),
+            })
+          } else {
+            Some(Token {
+              ty: TokenType::Plus,
+              position: Position::new(pos, pos + 1),
+            })
+          }
         }
         '-' => {
           self.next();
-          Some(Token {
-            ty: TokenType::Minus,
-            position: Position::new(pos, pos + 1),
-          })
+          if self.consume(&'=') {
+            Some(Token {
+              ty: TokenType::Dec,
+              position: Position::new(pos, pos + 2),
+            })
+          } else {
+            Some(Token {
+              ty: TokenType::Minus,
+              position: Position::new(pos, pos + 1),
+            })
+          }
         }
         '*' => {
           self.next();

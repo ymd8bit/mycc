@@ -21,6 +21,8 @@ pub enum TokenType {
   LBrace,      // '{'
   RBrace,      // '}'
   Assign,      // '='
+  Inc,         // '+='
+  Dec,         // '-='
   Not,         // '!'
   Eq,          // '=='
   Ne,          // '!='
@@ -52,6 +54,8 @@ impl ToSimpleString for TokenType {
       TokenType::LBrace => String::from("'{'"),
       TokenType::RBrace => String::from("'}'"),
       TokenType::Assign => String::from("'='"),
+      TokenType::Inc => String::from("'+='"),
+      TokenType::Dec => String::from("'-='"),
       TokenType::Not => String::from("'!'"),
       TokenType::Eq => String::from("'=='"),
       TokenType::Ne => String::from("'!='"),

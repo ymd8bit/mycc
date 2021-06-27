@@ -30,6 +30,8 @@ pub enum BinaryOpType {
   Mul,
   Div,
   Assign,
+  Inc,
+  Dec,
   Eq,
   Ne,
   Lt,
@@ -46,6 +48,8 @@ impl ToSimpleString for BinaryOpType {
       BinaryOpType::Mul => String::from("Mul"),
       BinaryOpType::Div => String::from("Div"),
       BinaryOpType::Assign => String::from("Assign"),
+      BinaryOpType::Inc => String::from("Inc"),
+      BinaryOpType::Dec => String::from("Dec"),
       BinaryOpType::Eq => String::from("Eq"),
       BinaryOpType::Ne => String::from("Ne"),
       BinaryOpType::Lt => String::from("Lt"),
@@ -173,6 +177,12 @@ pub enum Stmt {
     true_body: Vec<Box<Stmt>>,
     false_body: Option<Vec<Box<Stmt>>>,
   },
+  ForStmt {
+    cond: Option<Box<Expr>>,
+    prologue: Option<Box<Expr>>,
+    epilogue: Option<Box<Expr>>,
+    body: Vec<Box<Stmt>>,
+  },
   ReturnStmt {
     expr: Option<Box<Expr>>,
   },
@@ -204,6 +214,27 @@ impl ToSimpleString for Stmt {
           }
           None => s,
         }
+      }
+      Stmt::ForStmt {
+        cond,
+        prologue,
+        epilogue,
+        body,
+      } => {
+        let mut s = String::from("for(\n");
+        if let Some(expr) = prologue {
+          s.push_str(&format!("{},", expr));
+        }
+        if let Some(expr) = cond {
+          s.push_str(&format!("{},", expr));
+        }
+        if let Some(expr) = epilogue {
+          s.push_str(&format!("{}", expr));
+        }
+        s.push_str(") {");
+        s += &stmt_list_to_string(body);
+        s.push_str("}");
+        s
       }
       Stmt::ReturnStmt { expr } => match expr {
         Some(expr) => format!("Return({})", expr),
