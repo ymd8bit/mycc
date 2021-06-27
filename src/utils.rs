@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufWriter;
+use std::io::{self, BufRead, BufWriter};
 use std::path::Path;
 
 pub trait ToSimpleString: fmt::Display {
@@ -47,5 +46,23 @@ impl Printer {
 
   fn dec_indent(&mut self) {
     self.indent -= 2;
+  }
+}
+
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where
+  P: AsRef<Path>,
+{
+  let file = File::open(filename)?;
+  Ok(io::BufReader::new(file).lines())
+}
+
+pub fn print_file(file_path: &Path) {
+  if let Ok(lines) = read_lines(file_path) {
+    for line in lines {
+      if let Ok(ip) = line {
+        println!("{}", ip);
+      }
+    }
   }
 }

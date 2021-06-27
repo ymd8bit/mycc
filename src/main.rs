@@ -9,11 +9,13 @@ mod token;
 mod utils;
 
 use clap::{App, Arg};
+use std::path::Path;
+use std::process::Command;
+
 use codegen::x86::Codegen;
 use lexer::Lexer;
 use parser::Parser;
-use std::path::Path;
-use std::process::Command;
+use utils::print_file;
 
 fn main() -> std::io::Result<()> {
     let matches = App::new("mycc")
@@ -49,8 +51,11 @@ fn main() -> std::io::Result<()> {
 
     let mut gen = Codegen::new();
     gen.export(&tmp_asm_path, module);
+    print_file(&tmp_asm_path);
 
     let _ = Command::new("gcc")
+        .arg("-g")
+        .arg("-O0")
         .arg("-o")
         .arg(&tmp_elf_path)
         .arg(&tmp_asm_path)

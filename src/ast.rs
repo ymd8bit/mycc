@@ -76,6 +76,11 @@ pub enum Expr {
     value: u64,
     position: Position,
   },
+  Call {
+    name: String,
+    args: Vec<Box<Expr>>,
+    position: Position,
+  },
   UnaryOp {
     op: UnaryOpType,
     rhs: Box<Expr>,
@@ -101,6 +106,20 @@ impl ToSimpleString for Expr {
         lhs,
         position,
       } => format!("{}{}{{{}, {}}}", op, position, lhs, rhs),
+      Expr::Call {
+        name,
+        args,
+        position,
+      } => {
+        let mut s = format!("Call{}{{'{}',", position, name);
+        for (i, arg) in args.iter().enumerate() {
+          s.push_str("\n");
+          s.push_str(&format!("  {}: ", 1));
+          s.push_str(&arg.to_simple_string());
+        }
+        s.push_str("\n}}");
+        s
+      }
     }
   }
 }

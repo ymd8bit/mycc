@@ -106,7 +106,6 @@ impl Parser {
 
   pub fn parse_decl(&mut self) -> Option<Box<Stmt>> {
     let token = self.current()?;
-    println!("{}", token);
     match token.ty {
       TokenType::Id(_) => {
         if self.peek_is(TokenType::LParen) {
@@ -255,7 +254,6 @@ impl Parser {
     self.next();
     // parse 'return' stmt with the lhs
     if self.consume(TokenType::Semicolon).is_none() {
-      println!("{}", self.current().unwrap());
       let expr = self
         .parse_expr(Precedence::LOWEST)
         .expect("'return' is followed by an unexpected expr...");
@@ -301,12 +299,55 @@ impl Parser {
     }
   }
 
+  fn parse_call(&mut self) -> Option<Box<Expr>> {
+    let token = self.current()?;
+    let pos = token.position;
+    let name = token.get_id_string();
+    self.next();
+    let args = self.parse_call_args();
+    Some(Box::new(Expr::Call {
+      name: name,
+      args: args,
+      position: pos,
+    }))
+  }
+
+  pub fn parse_call_args(&mut self) -> Vec<Box<Expr>> {
+    self
+      .consume(TokenType::LParen)
+      .expect("Expect '(' but not found...");
+
+    // No argment patern: "{fn_name}()"
+    if self.consume(TokenType::RParen).is_some() {
+      return Vec::new();
+    }
+
+    let mut args = Vec::new();
+    let first_arg = self.parse_expr(Precedence::LOWEST).unwrap();
+    args.push(first_arg);
+
+    // with argments patern: "{fn_name}(first_arg (, arg)*)"
+    while self.consume(TokenType::RParen).is_none() {
+      self.consume_or_panic(TokenType::Comma);
+      let arg = self.parse_expr(Precedence::LOWEST).unwrap();
+      args.push(arg);
+    }
+
+    args
+  }
+
   fn parse_unary_op(&mut self) -> Option<Box<Expr>> {
     let token = self.current()?;
     match token.ty {
       TokenType::Plus => self.make_unary_op(UnaryOpType::Plus),
       TokenType::Minus => self.make_unary_op(UnaryOpType::Minus),
-      TokenType::Id(_) => self.parse_id(),
+      TokenType::Id(_) => {
+        if self.peek_is(TokenType::LParen) {
+          self.parse_call()
+        } else {
+          self.parse_id()
+        }
+      }
       TokenType::Number(_) => self.parse_number(),
       TokenType::LParen => self.parse_grouped_expr(),
       _ => None,
@@ -334,12 +375,7 @@ impl Parser {
     let pos = token.position;
     let precedence = Self::token_precedence(token);
     self.next();
-
-    println!("{}", self.current().unwrap());
-
     let rhs = self.parse_expr(precedence)?;
-    println!("lhs: {}", rhs);
-    println!("{}", self.current().unwrap());
     Some(Box::new(Expr::BinaryOp {
       op: op,
       lhs: lhs,

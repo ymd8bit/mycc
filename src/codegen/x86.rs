@@ -18,7 +18,7 @@ impl Env {
   }
 
   fn alloc(&mut self, var_name: &str) -> usize {
-    let offset = self.index * 8;
+    let offset = (self.index + 1) * 8;
     self.sym_table.insert(String::from(var_name), offset);
     self.index += 1;
     offset
@@ -44,6 +44,7 @@ pub struct Codegen {
   pub code_list: Vec<String>,
   indent: usize,
   label_index: usize,
+  rsp_count: i64,
 }
 
 impl Codegen {
@@ -52,6 +53,7 @@ impl Codegen {
       code_list: Vec::new(),
       indent: 0,
       label_index: 0,
+      rsp_count: 0,
     }
   }
 
@@ -83,7 +85,9 @@ impl Codegen {
     for stmt in module.stmt_list {
       match *stmt {
         Stmt::FnStmt { name, args, body } => {
+          println!("fn_name: {}", name);
           self.gen_fn(&name, args, body);
+          self.set_newline();
         }
         _ => panic!("currently FnStmt is only supported..."),
       }
@@ -97,7 +101,7 @@ impl Codegen {
     self.set(".section .rodata");
     self.set(".LC0:");
     self.inc_indent();
-    self.set(".string \"%d\\n\"");
+    self.set(".string \"%lu\\n\"");
     self.set(".text");
     self.dec_indent();
     self.set_newline();
@@ -106,11 +110,18 @@ impl Codegen {
   }
 
   fn gen_fn(&mut self, name: &str, args: ArgList, body: Vec<Box<Stmt>>) {
+    self.rsp_count = 0;
     let mut env = Env::new();
-    for arg in args.container.iter() {
-      env.alloc(&arg.name);
-    }
     self.gen_fn_prolouge(&name, &env);
+
+    let reg_names = self.arg_register_names();
+    for (i, arg) in args.container.iter().enumerate() {
+      let offset = env.alloc(&arg.name);
+      let reg_name = reg_names[i];
+      self.set(&format!("mov -{}[rbp], {}", offset, reg_name));
+    }
+    self.set(&format!("sub rsp, {}", args.container.len() * 8));
+
     self.gen_block(body, &mut env);
     self.gen_fn_epilouge(&name);
   }
@@ -118,16 +129,16 @@ impl Codegen {
   fn gen_fn_prolouge(&mut self, name: &str, _env: &Env) {
     self.set(&format!("{}:", name));
     self.inc_indent();
-    self.set("push rbp");
+    self.set_push("rbp");
     self.set("mov rbp, rsp");
     self.set(&format!("# function '{}' begin", name));
   }
 
   fn gen_fn_epilouge(&mut self, name: &str) {
     self.set(&format!("# function '{}' end", name));
-    self.set("pop rax");
+    self.set_pop("rax");
     self.set("mov rsp, rbp");
-    self.set("pop rbp");
+    self.set_pop("rbp");
     self.set("ret");
     self.dec_indent();
   }
@@ -135,7 +146,7 @@ impl Codegen {
   fn gen_block(&mut self, body: Vec<Box<Stmt>>, env: &mut Env) {
     for stmt in body {
       match *stmt {
-        Stmt::ExprStmt { expr } => self.gen_expr(expr, env),
+        Stmt::ExprStmt { expr } => self.gen_expr(&expr, env),
         Stmt::IfStmt {
           cond,
           true_body,
@@ -155,8 +166,8 @@ impl Codegen {
     }
   }
 
-  fn gen_lvalue(&mut self, expr: Box<Expr>, env: &mut Env, alloc_ok: bool) {
-    match *expr {
+  fn gen_lvalue(&mut self, expr: &Box<Expr>, env: &mut Env, alloc_ok: bool) {
+    match &**expr {
       Expr::Id { name, position: _ } => {
         let offset = match env.get_offset(&name) {
           Some(offset) => offset,
@@ -170,7 +181,7 @@ impl Codegen {
         };
         self.set("mov rax, rbp");
         self.set(&format!("sub rax, {}", offset));
-        self.set("push rax");
+        self.set_push("rax");
       }
       _ => panic!("Only Id can be refered as lvalue..."),
     }
@@ -183,8 +194,8 @@ impl Codegen {
     false_body: Option<Vec<Box<Stmt>>>,
     env: &mut Env,
   ) {
-    self.gen_expr(cond, env);
-    self.set("pop rax");
+    self.gen_expr(&&cond, env);
+    self.set_pop("rax");
     self.set("cmp rax, 0");
     if let Some(false_body) = false_body {
       self.set(&format!("je .Lelse_{}", self.label_index));
@@ -209,19 +220,19 @@ impl Codegen {
     env: &mut Env,
   ) {
     if let Some(expr) = prologue {
-      self.gen_expr(expr, env);
+      self.gen_expr(&expr, env);
     }
     let label_begin = self.set_label("for_begin");
     let label_end = self.make_label("for_end");
     if let Some(expr) = cond {
-      self.gen_expr(expr, env);
+      self.gen_expr(&expr, env);
     }
-    self.set("pop rax");
+    self.set_pop("rax");
     self.set("cmp rax, 0");
     self.set(&format!("je {}", label_end));
     self.gen_block(body, env);
     if let Some(expr) = epilogue {
-      self.gen_expr(expr, env);
+      self.gen_expr(&expr, env);
     }
     self.set(&format!("jmp {}", label_begin));
     let _ = self.set_label("for_end");
@@ -230,41 +241,73 @@ impl Codegen {
 
   fn gen_return(&mut self, lhs: Option<Box<Expr>>, env: &mut Env) {
     if let Some(lhs) = lhs {
-      self.gen_expr(lhs, env);
+      self.gen_expr(&lhs, env);
     }
-    self.set("pop rax");
+    self.set_pop("rax");
     self.set("mov rsp, rbp");
-    self.set("pop rbp");
+    self.set_pop("rbp");
     self.set("ret");
   }
 
-  fn gen_expr(&mut self, expr: Box<Expr>, env: &mut Env) {
-    match *expr {
+  fn gen_expr(&mut self, expr: &Box<Expr>, env: &mut Env) {
+    match &**expr {
       Expr::Id {
         name: _,
         position: _,
       } => {
         self.gen_lvalue(expr, env, false);
-        self.set("pop rax");
+        self.set_pop("rax");
         self.set("mov rax, [rax]");
-        self.set("push rax");
+        self.set_push("rax");
       }
       Expr::Number { value, position: _ } => {
-        self.set(&format!("push {}", value));
+        self.set_push(&value.to_string());
+      }
+      Expr::Call {
+        name,
+        args,
+        position: _,
+      } => {
+        if args.len() > 6 {
+          panic!("Currently call args must be less than 7...");
+        }
+        for arg in args.iter() {
+          self.gen_expr(&arg, env);
+        }
+        // we must pop in reverse order, so indexing is complex
+        let reg_names = self.arg_register_names();
+        let num_args = args.len();
+        for i in 1..=num_args {
+          let reg_name = reg_names[num_args - i];
+          self.set_pop("rax");
+          self.set(&format!("mov {}, rax", reg_name));
+        }
+        // push dummy for aligning RSP by 16 bytes
+        if self.rsp_count % 2 == 0 {
+          self.set("sub rsp, 8");
+        }
+        println!("rsp_count: {}", self.rsp_count);
+        self.set(&format!("call {}", name));
+        println!("rsp_count: {}", self.rsp_count);
+        // pop dummy for aligning RSP by 16 bytes
+        if self.rsp_count % 2 == 0 {
+          self.set("add rsp, 8");
+        }
+        self.set_push("rax");
       }
       Expr::UnaryOp {
         op,
         rhs,
         position: _,
       } => {
-        self.gen_expr(rhs, env);
-        self.set("pop rdi");
+        self.gen_expr(&rhs, env);
+        self.set_pop("rdi");
         self.set("mov rax, 0");
         match op {
           UnaryOpType::Minus => self.set("sub rax, rdi"),
           UnaryOpType::Plus => self.set("add rax, rdi"),
         }
-        self.set("push rax");
+        self.set_push("rax");
       }
       Expr::BinaryOp {
         op,
@@ -274,18 +317,18 @@ impl Codegen {
       } => {
         match op {
           BinaryOpType::Assign => {
-            self.gen_lvalue(lhs, env, true);
-            self.gen_expr(rhs, env);
-            self.set("pop rdi");
-            self.set("pop rax");
+            self.gen_lvalue(&lhs, env, true);
+            self.gen_expr(&rhs, env);
+            self.set_pop("rdi");
+            self.set_pop("rax");
             self.set("mov [rax], rdi");
-            self.set("push rdi");
+            self.set_push("rdi");
           }
           BinaryOpType::Inc | BinaryOpType::Dec => {
-            self.gen_lvalue(lhs, env, false);
-            self.gen_expr(rhs, env);
-            self.set("pop rdi");
-            self.set("pop rax");
+            self.gen_lvalue(&lhs, env, false);
+            self.gen_expr(&rhs, env);
+            self.set_pop("rdi");
+            self.set_pop("rax");
             self.set("mov rcx, [rax]");
             match op {
               BinaryOpType::Inc => self.set("add rcx, rdi"),
@@ -293,13 +336,13 @@ impl Codegen {
               _ => panic!("Unreachable"),
             };
             self.set("mov [rax], rcx");
-            self.set("push rdi");
+            self.set_push("rdi");
           }
           _ => {
-            self.gen_expr(lhs, env);
-            self.gen_expr(rhs, env);
-            self.set("pop rdi");
-            self.set("pop rax");
+            self.gen_expr(&lhs, env);
+            self.gen_expr(&rhs, env);
+            self.set_pop("rdi");
+            self.set_pop("rax");
             match op {
               BinaryOpType::Add => self.set("add rax, rdi"),
               BinaryOpType::Sub => self.set("sub rax, rdi"),
@@ -336,7 +379,7 @@ impl Codegen {
             };
           }
         };
-        self.set("push rax");
+        self.set_push("rax");
       }
     }
   }
@@ -347,6 +390,16 @@ impl Codegen {
       indent += " ";
     }
     self.code_list.push(format!("{}{}\n", indent, cmd));
+  }
+
+  fn set_push(&mut self, reg_name: &str) {
+    self.set(&format!("push {}", reg_name));
+    self.rsp_count += 1;
+  }
+
+  fn set_pop(&mut self, reg_name: &str) {
+    self.set(&format!("pop {}", reg_name));
+    self.rsp_count -= 1;
   }
 
   fn set_label(&mut self, name: &str) -> String {
@@ -369,6 +422,10 @@ impl Codegen {
 
   fn dec_indent(&mut self) {
     self.indent -= 2;
+  }
+
+  fn arg_register_names(&self) -> Vec<&'static str> {
+    vec!["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
   }
 
   // pub fn save(&mut self, ) -> Box<Vec<String>> {
