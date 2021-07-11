@@ -57,6 +57,17 @@ impl Parser {
     peek.ty == expect_type
   }
 
+  fn peek_is_id(&self) -> bool {
+    if self.peek().is_none() {
+      return false;
+    }
+    let peek = self.peek().unwrap();
+    match peek.ty {
+      TokenType::Id(_) => true,
+      _ => false,
+    }
+  }
+
   fn on_eof(&self) -> bool {
     self.index >= self.token_list.len()
   }
@@ -107,34 +118,46 @@ impl Parser {
   pub fn parse_decl(&mut self) -> Option<Box<Stmt>> {
     let token = self.current()?;
     match token.ty {
-      TokenType::Id(_) => {
-        if self.peek_is(TokenType::LParen) {
-          return Some(self.parse_fn());
-        } else {
-          panic!("var decl is not supported now...");
+      TokenType::Type(_) => {
+        let (typ, name) = self.parse_var_decl();
+        let token = self.current()?;
+        match token.ty {
+          TokenType::LParen => {
+            let args = self.parse_fn_args(); // consume '(' first_arg (, arg)* ')'
+            let block = self.parse_stmt_block();
+            Some(Box::new(Stmt::FnStmt {
+              name: name,
+              args: args,
+              body: block,
+              ret_type: typ,
+            }))
+          }
+          _ => panic!("var decl is not supported now..."),
         }
       }
       _ => panic!("Expected decl but {} found...", token.ty),
     }
   }
 
-  pub fn parse_fn(&mut self) -> Box<Stmt> {
-    let (name, args) = self.parse_prototype();
-    let block = self.parse_stmt_block();
-
-    Box::new(Stmt::FnStmt {
-      name: name,
-      args: args,
-      body: block,
-    })
+  pub fn parse_var_decl(&mut self) -> (Type, String) {
+    let typ = self.parse_type();
+    let token = self.current_or_panic();
+    let name = token.get_id_string();
+    self.next();
+    (typ, name)
   }
 
-  pub fn parse_prototype(&mut self) -> (String, ArgList) {
+  pub fn parse_type(&mut self) -> Type {
     let token = self.current_or_panic();
-    let fn_name = token.get_id_string();
+    let type_name = match &token.ty {
+      TokenType::Type(typ_name) => String::from(&*typ_name),
+      _ => panic!("Expected type-token but other token found..."),
+    };
     self.next();
-    let args = self.parse_fn_args(); // consume '(' first_arg (, arg)* ')'
-    (fn_name, args)
+    match &*type_name {
+      "int" => Type::Int,
+      _ => panic!("Invalid type name found..."),
+    }
   }
 
   pub fn parse_fn_args(&mut self) -> ArgList {
@@ -162,10 +185,14 @@ impl Parser {
   }
 
   pub fn parse_arg(&mut self) -> Arg {
-    let arg = self.current_or_panic();
-    let arg_name = arg.get_id_string();
-    self.next();
-    Arg { name: arg_name }
+    let (typ, name) = self.parse_var_decl();
+    // let arg = self.current_or_panic();
+    // let arg_name = arg.get_id_string();
+    // self.next();
+    Arg {
+      name: name,
+      typ: typ,
+    }
   }
 
   pub fn parse_stmt_block(&mut self) -> Vec<Box<Stmt>> {
@@ -190,6 +217,14 @@ impl Parser {
       TokenType::If => self.parse_if_stmt(),
       TokenType::For => self.parse_for_stmt(),
       TokenType::Return => self.parse_return_stmt(),
+      TokenType::Type(_) => {
+        let _ = self.parse_type();
+        // let (typ, var_name) = self.parse_var_decl();
+        // TODO: rewrite here for assign stmt..
+        let expr = self.parse_expr(Precedence::LOWEST)?;
+        self.consume_or_panic(TokenType::Semicolon);
+        Stmt::ExprStmt { expr: expr }
+      }
       _ => {
         let expr = self.parse_expr(Precedence::LOWEST)?;
         self.consume_or_panic(TokenType::Semicolon);

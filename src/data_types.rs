@@ -1,8 +1,8 @@
-enum DataType {
+enum Type {
   Int { nbits: usize, signed: bool }, // Float {
                                       //   nbits: usize,
                                       // }
                                       // Bool
-                                      // Pointer(Box<DataType>)
-                                      // Ref(Box<DataType>)
+                                      // Pointer(Box<Type>)
+                                      // Ref(Box<Type>)
 }

@@ -84,7 +84,9 @@ impl Codegen {
 
     for stmt in module.stmt_list {
       match *stmt {
-        Stmt::FnStmt { name, args, body } => {
+        Stmt::FnStmt {
+          name, args, body, ..
+        } => {
           self.gen_fn(&name, args, body);
           self.set_newline();
         }

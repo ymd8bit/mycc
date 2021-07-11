@@ -2,6 +2,25 @@ use crate::token::Position;
 use crate::utils::{Printer, ToSimpleString};
 use std::fmt;
 
+#[derive(Debug, Clone)]
+pub enum Type {
+  Int,
+}
+
+impl ToSimpleString for Type {
+  fn to_simple_string(&self) -> String {
+    match self {
+      Type::Int => String::from("int"),
+    }
+  }
+}
+
+impl fmt::Display for Type {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}", self.to_simple_string())
+  }
+}
+
 #[derive(Debug)]
 pub enum UnaryOpType {
   Plus,
@@ -133,6 +152,7 @@ impl fmt::Display for Expr {
 #[derive(Debug, Clone)]
 pub struct Arg {
   pub name: String,
+  pub typ: Type,
 }
 impl ToSimpleString for Arg {
   fn to_simple_string(&self) -> String {
@@ -209,6 +229,7 @@ pub enum Stmt {
     name: String,
     args: ArgList,
     body: Vec<Box<Stmt>>,
+    ret_type: Type,
   },
 }
 
@@ -259,8 +280,13 @@ impl ToSimpleString for Stmt {
         Some(expr) => format!("Return({})", expr),
         None => format!("Return()"),
       },
-      Stmt::FnStmt { name, args, body } => {
-        let mut fn_str = format!("Fn({}, {}) {{", name, args);
+      Stmt::FnStmt {
+        name,
+        args,
+        body,
+        ret_type,
+      } => {
+        let mut fn_str = format!("Fn({}, {}) -> {} {{", name, args, ret_type);
         for (i, stmt) in body.iter().enumerate() {
           fn_str.push_str("\n");
           fn_str.push_str(&format!("  {}: ", i));

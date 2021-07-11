@@ -7,31 +7,32 @@ use std::ops::{Index, IndexMut};
 pub enum TokenType {
   Id(String),  // ([a-z|A-Z|_])([a-z|A-Z|_|0-9])*
   Number(u64), // [0-9][0-9]*
-  If,          // 'if'
-  Else,        // 'else'
-  For,         // 'for'
-  While,       // 'while'
-  Return,      // 'return'
-  Plus,        // '+'
-  Minus,       // '-'
-  Aster,       // '*'
-  Slash,       // '/'
-  LParen,      // '('
-  RParen,      // ')'
-  LBrace,      // '{'
-  RBrace,      // '}'
-  Assign,      // '='
-  Inc,         // '+='
-  Dec,         // '-='
-  Not,         // '!'
-  Eq,          // '=='
-  Ne,          // '!='
-  Lt,          // '<'
-  Gt,          // '>'
-  Le,          // '<='
-  Ge,          // '>='
-  Semicolon,   // ';'
-  Comma,       // ','
+  Type(String),
+  If,        // 'if'
+  Else,      // 'else'
+  For,       // 'for'
+  While,     // 'while'
+  Return,    // 'return'
+  Plus,      // '+'
+  Minus,     // '-'
+  Aster,     // '*'
+  Slash,     // '/'
+  LParen,    // '('
+  RParen,    // ')'
+  LBrace,    // '{'
+  RBrace,    // '}'
+  Assign,    // '='
+  Inc,       // '+='
+  Dec,       // '-='
+  Not,       // '!'
+  Eq,        // '=='
+  Ne,        // '!='
+  Lt,        // '<'
+  Gt,        // '>'
+  Le,        // '<='
+  Ge,        // '>='
+  Semicolon, // ';'
+  Comma,     // ','
   Eof,
 }
 
@@ -40,6 +41,7 @@ impl ToSimpleString for TokenType {
     match self {
       TokenType::Id(x) => format!("Id({})", x),
       TokenType::Number(x) => format!("Num({})", x),
+      TokenType::Type(ty) => format!("Type({})", ty),
       TokenType::If => format!("If"),
       TokenType::Else => format!("Else"),
       TokenType::For => format!("For"),
@@ -138,6 +140,13 @@ impl Token {
   pub fn id(s: String, start: usize, end: usize) -> Self {
     Self {
       ty: TokenType::Id(s),
+      position: Position::new(start, end),
+    }
+  }
+
+  pub fn typ(s: &str, start: usize, end: usize) -> Self {
+    Self {
+      ty: TokenType::Type(String::from(s)),
       position: Position::new(start, end),
     }
   }

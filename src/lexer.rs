@@ -301,6 +301,7 @@ impl Lexer {
         ty: TokenType::Return,
         position: Position::new(pos, pos_end),
       }),
+      "int" => Some(Token::typ("int", pos, pos_end)),
       _ => None,
     }
   }

@@ -25,10 +25,8 @@ fn compile(source_file_path: &str, tmp_dir: &PathBuf) -> PathBuf {
     let module = parser.parse();
     // println!("{}", module);
     let mut gen = Codegen::new();
-
     let tmp_asm_path = tmp_dir.join("tmp.s");
     gen.export(&tmp_asm_path, module);
-
     tmp_asm_path
 }
 
